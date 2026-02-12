@@ -362,8 +362,6 @@
             });
         }
 
-        initApp();
-
         // --- 3. FETCH DATA ---
         function fetchData() {
             if (!window.useCloud || !currentUser) return;
@@ -829,6 +827,9 @@
             };
             reader.readAsText(file);
         };
+
+        // Initialize the app after all functions are defined!
+        initApp();
     </script>
 </body>
 </html>
