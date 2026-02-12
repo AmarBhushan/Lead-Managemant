@@ -26,15 +26,20 @@
     <div class="fixed top-0 w-full bg-white shadow-sm z-40 px-4 py-3 flex justify-between items-center">
         <h1 class="font-bold text-lg text-indigo-700 leading-tight">GeniusHub<span class="text-xs text-gray-500 block font-normal">Pipeline Tracker</span></h1>
         
-        <select id="countryFilter" onchange="renderUI()" class="bg-gray-100 text-sm border-none rounded-full px-3 py-1.5 focus:ring-0 shadow-inner">
-            <option value="All">All Regions</option>
-            <option value="USA">🇺🇸 USA</option>
-            <option value="Canada">🇨🇦 Canada</option>
-            <option value="UK">🇬🇧 UK</option>
-            <option value="Australia">🇦🇺 Australia</option>
-            <option value="Singapore">🇸🇬 Singapore</option>
-            <option value="Dubai">🇦🇪 Dubai</option>
-        </select>
+        <div class="flex items-center space-x-2">
+            <select id="countryFilter" onchange="renderUI()" class="bg-gray-100 text-sm border-none rounded-full px-3 py-1.5 focus:ring-0 shadow-inner">
+                <option value="All">All Regions</option>
+                <option value="USA">🇺🇸 USA</option>
+                <option value="Canada">🇨🇦 Canada</option>
+                <option value="UK">🇬🇧 UK</option>
+                <option value="Australia">🇦🇺 Australia</option>
+                <option value="Singapore">🇸🇬 Singapore</option>
+                <option value="Dubai">🇦🇪 Dubai</option>
+            </select>
+            <button onclick="openSettingsModal()" class="text-gray-500 hover:text-indigo-600 transition-colors p-2 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
     </div>
 
     <!-- Scrollable Stats Bar -->
@@ -212,11 +217,56 @@
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-[400px] rounded-t-3xl sm:rounded-2xl p-6 slide-over max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-5 border-b pb-3">
+                <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-cog mr-2 text-indigo-500"></i>Settings</h2>
+                <button onclick="closeModal('settingsModal')" class="text-gray-500 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <button onclick="exportData()" class="w-full flex items-center justify-center space-x-2 bg-blue-50 text-blue-700 border border-blue-200 py-3.5 rounded-xl font-bold hover:bg-blue-100 transition-colors">
+                    <i class="fas fa-download"></i> <span>Download Backup (.json)</span>
+                </button>
+                
+                <button onclick="triggerImport()" class="w-full flex items-center justify-center space-x-2 bg-green-50 text-green-700 border border-green-200 py-3.5 rounded-xl font-bold hover:bg-green-100 transition-colors">
+                    <i class="fas fa-upload"></i> <span>Restore Backup</span>
+                </button>
+                <input type="file" id="importFile" accept=".json" class="hidden" onchange="handleImport(event)">
+            </div>
+            <p class="text-xs text-gray-400 mt-4 text-center">Restoring will merge and overwrite existing leads with matching IDs from the backup file.</p>
+        </div>
+    </div>
+
+    <!-- CONFIRM MODAL -->
+    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-60 z-[60] hidden flex items-center justify-center">
+        <div class="bg-white w-[90%] sm:w-[350px] rounded-2xl p-6 text-center shadow-2xl scale-95 transition-transform">
+            <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
+            <h3 id="confirmTitle" class="text-lg font-bold text-gray-900 mb-2">Are you sure?</h3>
+            <p id="confirmMessage" class="text-sm text-gray-500 mb-6">This action cannot be undone.</p>
+            <div class="flex space-x-3">
+                <button onclick="closeConfirmModal()" class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-200">Cancel</button>
+                <button id="confirmActionBtn" class="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl font-bold hover:bg-indigo-700">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFY MODAL -->
+    <div id="notifyModal" class="fixed inset-0 bg-black bg-opacity-60 z-[60] hidden flex items-center justify-center">
+        <div class="bg-white w-[90%] sm:w-[350px] rounded-2xl p-6 text-center shadow-2xl scale-95 transition-transform">
+            <i id="notifyIcon" class="fas fa-check-circle text-4xl text-green-500 mb-4"></i>
+            <h3 id="notifyTitle" class="text-lg font-bold text-gray-900 mb-2">Success</h3>
+            <p id="notifyMessage" class="text-sm text-gray-500 mb-6">Action completed.</p>
+            <button onclick="closeNotifyModal()" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold hover:bg-indigo-700">OK</button>
+        </div>
+    </div>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // 1. Initialize Firebase
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -416,6 +466,45 @@
             document.getElementById(id).classList.add('hidden');
         };
 
+        window.openSettingsModal = function() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        };
+
+        // Custom Dialogs
+        window.customConfirm = function(title, message, callback) {
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmMessage').innerText = message;
+            document.getElementById('confirmModal').classList.remove('hidden');
+            
+            const btn = document.getElementById('confirmActionBtn');
+            btn.onclick = function() {
+                window.closeConfirmModal();
+                callback();
+            };
+        };
+
+        window.closeConfirmModal = function() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        };
+
+        window.customAlert = function(title, message, type = 'success') {
+            document.getElementById('notifyTitle').innerText = title;
+            document.getElementById('notifyMessage').innerText = message;
+            const icon = document.getElementById('notifyIcon');
+            if(type === 'error') {
+                icon.className = 'fas fa-times-circle text-4xl text-red-500 mb-4';
+            } else if(type === 'warning') {
+                icon.className = 'fas fa-exclamation-circle text-4xl text-yellow-500 mb-4';
+            } else {
+                icon.className = 'fas fa-check-circle text-4xl text-green-500 mb-4';
+            }
+            document.getElementById('notifyModal').classList.remove('hidden');
+        };
+
+        window.closeNotifyModal = function() {
+            document.getElementById('notifyModal').classList.add('hidden');
+        };
+
         window.openDetails = function(id) {
             const item = window.enquiries.find(x => x.id === id);
             if(!item) return;
@@ -574,11 +663,91 @@
             const id = document.getElementById('updateId').value;
             if(!window.currentUser || !id) return;
             
-            if(confirm('Are you sure you want to permanently delete this lead and its entire history?')) {
-                const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
-                await deleteDoc(docRef);
-                window.closeModal('detailsModal');
+            window.customConfirm(
+                "Delete Lead?", 
+                "Are you sure you want to permanently delete this lead and its entire history?", 
+                async () => {
+                    const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
+                    await deleteDoc(docRef);
+                    window.closeModal('detailsModal');
+                    window.customAlert("Deleted", "Lead was permanently removed.", "success");
+                }
+            );
+        };
+
+        // Backup & Restore Features
+        window.exportData = function() {
+            if(window.enquiries.length === 0) {
+                window.customAlert("Empty", "No data available to export.", "warning");
+                return;
             }
+            const dataStr = JSON.stringify(window.enquiries, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `GeniusHub_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            window.closeModal('settingsModal');
+            window.customAlert("Exported", "Backup file downloaded successfully.", "success");
+        };
+
+        window.triggerImport = function() {
+            document.getElementById('importFile').click();
+        };
+
+        window.handleImport = async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedData)) {
+                        window.customAlert("Error", "Invalid backup file format.", "error");
+                        return;
+                    }
+
+                    if (!window.currentUser) {
+                        window.customAlert("Error", "You must be connected to the cloud to restore.", "error");
+                        return;
+                    }
+
+                    window.customConfirm(
+                        "Restore Backup?",
+                        `Are you sure you want to restore ${importedData.length} leads? Matching IDs will be merged into the database.`,
+                        async () => {
+                            document.getElementById('loadingState').classList.remove('hidden');
+                            document.getElementById('enquiryList').classList.add('hidden');
+                            window.closeModal('settingsModal');
+
+                            let successCount = 0;
+                            const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
+
+                            for (const item of importedData) {
+                                if (item.id) {
+                                    const { id, ...dataToSave } = item;
+                                    const docRef = doc(colRef, id);
+                                    // Merge true ensures we don't wipe out newer data columns arbitrarily 
+                                    await setDoc(docRef, dataToSave, { merge: true });
+                                    successCount++;
+                                }
+                            }
+
+                            window.customAlert("Success", `Successfully restored ${successCount} leads!`, "success");
+                            event.target.value = ''; // Reset input
+                        }
+                    );
+                } catch (error) {
+                    console.error("Error parsing/importing backup:", error);
+                    window.customAlert("Error", "Error restoring backup. Please check the file.", "error");
+                }
+            };
+            reader.readAsText(file);
         };
     </script>
 </body>
