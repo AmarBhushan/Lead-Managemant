@@ -268,12 +268,34 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 1. Initialize Firebase
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        // --- 1. CONFIGURATION ---
+        // ⚠️ IF YOU WANT CLOUD SYNC (Zapier/Make.com integration):
+        // Replace this object with your own Firebase Config from console.firebase.google.com
+        const myFirebaseConfig = {
+            // apiKey: "YOUR_API_KEY",
+            // authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            // projectId: "YOUR_PROJECT_ID",
+            // storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            // messagingSenderId: "YOUR_SENDER_ID",
+            // appId: "YOUR_APP_ID"
+        };
+
+        const isHostedHere = typeof __firebase_config !== 'undefined';
+        const firebaseConfig = isHostedHere ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        const useCloud = Object.keys(firebaseConfig).length > 0;
+        
+        let app, auth, db;
+        if(useCloud) {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } catch(e) {
+                console.error("Firebase init failed, falling back to local.");
+            }
+        }
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'geniushub-crm-default';
 
         let currentUser = null;
         let unsubscribeSnapshot = null;
@@ -283,6 +305,7 @@
         window.db = db;
         window.appId = appId;
         window.currentUser = null;
+        window.useCloud = useCloud && db;
 
         // Configuration Arrays
         const STAGE_COLORS = {
@@ -298,46 +321,64 @@
             'Singapore': '🇸🇬', 'Dubai': '🇦🇪'
         };
 
-        // 2. Authenticate
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+        // --- 2. INITIALIZATION (Cloud vs Local) ---
+        async function initApp() {
+            if(window.useCloud) {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Auth error:", error);
+                    fallbackToLocal();
                 }
-            } catch (error) {
-                console.error("Auth error:", error);
+            } else {
+                fallbackToLocal();
             }
         }
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                window.currentUser = user;
-                fetchData();
+        function fallbackToLocal() {
+            window.useCloud = false;
+            const localData = localStorage.getItem('geniusHubData');
+            if(localData) {
+                window.enquiries = JSON.parse(localData);
             }
-        });
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('enquiryList').classList.remove('hidden');
+            window.renderUI();
+        }
 
-        initAuth();
+        if(window.useCloud) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    window.currentUser = user;
+                    fetchData();
+                } else {
+                    fallbackToLocal();
+                }
+            });
+        }
 
-        // 3. Fetch Data
+        initApp();
+
+        // --- 3. FETCH DATA ---
         function fetchData() {
-            if (!currentUser) return;
+            if (!window.useCloud || !currentUser) return;
             const enquiriesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'enquiries');
             
             unsubscribeSnapshot = onSnapshot(enquiriesRef, (snapshot) => {
                 window.enquiries = [];
                 snapshot.forEach((doc) => {
                     let data = doc.data();
-                    // Migrate old data on the fly if needed
                     if(!data.history) {
                         data.history = [{ timestamp: data.timestamp || Date.now(), action: 'Imported', note: data.notes || '', status: data.status }];
                     }
                     window.enquiries.push({ id: doc.id, ...data });
                 });
                 
-                // Sort by last updated (last history item)
                 window.enquiries.sort((a, b) => {
                     let aTime = a.history && a.history.length > 0 ? a.history[a.history.length-1].timestamp : 0;
                     let bTime = b.history && b.history.length > 0 ? b.history[b.history.length-1].timestamp : 0;
@@ -347,7 +388,10 @@
                 document.getElementById('loadingState').classList.add('hidden');
                 document.getElementById('enquiryList').classList.remove('hidden');
                 window.renderUI();
-            }, (error) => console.error("Firestore error:", error));
+            }, (error) => {
+                console.error("Firestore error:", error);
+                fallbackToLocal();
+            });
         }
 
         // --- UI Rendering ---
@@ -563,7 +607,6 @@
 
         window.saveNewEnquiry = async function(e) {
             e.preventDefault();
-            if(!window.currentUser) return;
 
             const btn = document.getElementById('saveNewBtn');
             btn.innerText = "Saving...";
@@ -582,6 +625,7 @@
             const timestamp = Date.now();
 
             const data = {
+                id: Date.now().toString(), // Will be overwritten by cloud ID if using cloud
                 name: document.getElementById('newName').value,
                 phone: document.getElementById('newPhone').value || '',
                 country: country || 'Unknown',
@@ -598,10 +642,17 @@
                 timestamp: timestamp
             };
 
-            const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
-
             try {
-                await addDoc(colRef, data);
+                if (window.useCloud && window.currentUser) {
+                    const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
+                    delete data.id; // Delete local ID so cloud generates a clean one
+                    await addDoc(colRef, data);
+                } else {
+                    // Fallback Local Storage Save
+                    window.enquiries.unshift(data);
+                    localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
+                    window.renderUI();
+                }
                 window.closeModal('newModal');
             } catch (error) {
                 console.error("Error saving:", error);
@@ -613,7 +664,6 @@
 
         window.saveHistoryUpdate = async function(e) {
             e.preventDefault();
-            if(!window.currentUser) return;
 
             const btn = document.getElementById('saveUpdateBtn');
             btn.innerText = "Saving...";
@@ -638,19 +688,28 @@
 
             const updatedHistory = [...(item.history || []), newHistoryItem];
 
-            const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
-
             try {
-                await updateDoc(docRef, { 
-                    status: newStatus, 
-                    history: updatedHistory,
-                    timestamp: Date.now() // Update main timestamp so it sorts to top
-                });
+                if (window.useCloud && window.currentUser) {
+                    const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
+                    await updateDoc(docRef, { 
+                        status: newStatus, 
+                        history: updatedHistory,
+                        timestamp: Date.now() 
+                    });
+                } else {
+                    // Fallback Local Storage Update
+                    item.status = newStatus;
+                    item.history = updatedHistory;
+                    item.timestamp = Date.now();
+                    localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
+                    window.renderUI();
+                }
+                
                 // Re-open details modal with fresh data visually
                 item.status = newStatus;
                 item.history = updatedHistory;
                 window.openDetails(id);
-                document.getElementById('updateNote').value = ''; // clear note input
+                document.getElementById('updateNote').value = ''; 
             } catch (error) {
                 console.error("Error updating:", error);
             } finally {
@@ -661,14 +720,21 @@
 
         window.deleteLead = async function() {
             const id = document.getElementById('updateId').value;
-            if(!window.currentUser || !id) return;
+            if(!id) return;
             
             window.customConfirm(
                 "Delete Lead?", 
                 "Are you sure you want to permanently delete this lead and its entire history?", 
                 async () => {
-                    const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
-                    await deleteDoc(docRef);
+                    if (window.useCloud && window.currentUser) {
+                        const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
+                        await deleteDoc(docRef);
+                    } else {
+                        // Fallback Local Storage Delete
+                        window.enquiries = window.enquiries.filter(x => x.id !== id);
+                        localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
+                        window.renderUI();
+                    }
                     window.closeModal('detailsModal');
                     window.customAlert("Deleted", "Lead was permanently removed.", "success");
                 }
@@ -712,11 +778,6 @@
                         return;
                     }
 
-                    if (!window.currentUser) {
-                        window.customAlert("Error", "You must be connected to the cloud to restore.", "error");
-                        return;
-                    }
-
                     window.customConfirm(
                         "Restore Backup?",
                         `Are you sure you want to restore ${importedData.length} leads? Matching IDs will be merged into the database.`,
@@ -726,16 +787,35 @@
                             window.closeModal('settingsModal');
 
                             let successCount = 0;
-                            const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
-
-                            for (const item of importedData) {
-                                if (item.id) {
-                                    const { id, ...dataToSave } = item;
-                                    const docRef = doc(colRef, id);
-                                    // Merge true ensures we don't wipe out newer data columns arbitrarily 
-                                    await setDoc(docRef, dataToSave, { merge: true });
-                                    successCount++;
+                            
+                            if (window.useCloud && window.currentUser) {
+                                const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
+                                for (const item of importedData) {
+                                    if (item.id) {
+                                        const { id, ...dataToSave } = item;
+                                        const docRef = doc(colRef, id);
+                                        await setDoc(docRef, dataToSave, { merge: true });
+                                        successCount++;
+                                    }
                                 }
+                            } else {
+                                // Fallback Local Storage Restore
+                                const existingIds = new Set(window.enquiries.map(x => x.id));
+                                importedData.forEach(item => {
+                                    if(item.id) {
+                                        if(existingIds.has(item.id)) {
+                                            const idx = window.enquiries.findIndex(x => x.id === item.id);
+                                            window.enquiries[idx] = { ...window.enquiries[idx], ...item };
+                                        } else {
+                                            window.enquiries.push(item);
+                                        }
+                                        successCount++;
+                                    }
+                                });
+                                localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
+                                document.getElementById('loadingState').classList.add('hidden');
+                                document.getElementById('enquiryList').classList.remove('hidden');
+                                window.renderUI();
                             }
 
                             window.customAlert("Success", `Successfully restored ${successCount} leads!`, "success");
