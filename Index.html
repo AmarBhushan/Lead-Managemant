@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeniusHub Pipeline CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .slide-over { transition: transform 0.3s ease-in-out; }
+        .loader { border-top-color: #4f46e5; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Timeline specific CSS */
+        .timeline-line { position: absolute; left: 15px; top: 8px; bottom: 0; width: 2px; background: #e5e7eb; z-index: 0; }
+        .timeline-item { position: relative; z-index: 1; padding-left: 36px; }
+        .timeline-dot { position: absolute; left: 11px; top: 6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #e5e7eb;}
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 pb-20">
+
+    <!-- Sticky Header -->
+    <div class="fixed top-0 w-full bg-white shadow-sm z-40 px-4 py-3 flex justify-between items-center">
+        <h1 class="font-bold text-lg text-indigo-700 leading-tight">GeniusHub<span class="text-xs text-gray-500 block font-normal">Pipeline Tracker</span></h1>
+        
+        <select id="countryFilter" onchange="renderUI()" class="bg-gray-100 text-sm border-none rounded-full px-3 py-1.5 focus:ring-0 shadow-inner">
+            <option value="All">All Regions</option>
+            <option value="USA">🇺🇸 USA</option>
+            <option value="Canada">🇨🇦 Canada</option>
+            <option value="UK">🇬🇧 UK</option>
+            <option value="Australia">🇦🇺 Australia</option>
+            <option value="Singapore">🇸🇬 Singapore</option>
+            <option value="Dubai">🇦🇪 Dubai</option>
+        </select>
+    </div>
+
+    <!-- Scrollable Stats Bar -->
+    <div class="mt-16 px-4 mb-3 flex space-x-2 overflow-x-auto no-scrollbar py-1">
+        <div class="bg-gray-200 text-gray-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-gray-300">
+            Cold: <span id="countCold">0</span>
+        </div>
+        <div class="bg-orange-100 text-orange-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-orange-200">
+            Hot: <span id="countHot">0</span>
+        </div>
+        <div class="bg-purple-100 text-purple-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-purple-200">
+            Demo Booked: <span id="countDemo">0</span>
+        </div>
+        <div class="bg-green-100 text-green-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-green-200">
+            Admission: <span id="countAdmission">0</span>
+        </div>
+        <div class="bg-red-100 text-red-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-red-200">
+            Dropped: <span id="countDropped">0</span>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="flex flex-col items-center justify-center mt-20">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10 mb-3"></div>
+        <p class="text-gray-500 text-sm font-medium">Syncing database...</p>
+    </div>
+
+    <!-- Main List Container -->
+    <div id="enquiryList" class="px-4 space-y-3 hidden">
+        <!-- Cards injected here -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="hidden flex flex-col items-center justify-center mt-32 text-gray-400">
+        <i class="fas fa-folder-open text-5xl mb-3 text-gray-300"></i>
+        <p class="font-medium">Pipeline is empty.</p>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button onclick="openNewModal()" class="fixed bottom-6 right-6 bg-indigo-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-95 transition-transform z-30">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- NEW ENQUIRY MODAL -->
+    <div id="newModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-[500px] rounded-t-3xl sm:rounded-2xl p-6 slide-over max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-5 sticky top-0 bg-white z-10 py-2 border-b">
+                <h2 class="text-xl font-bold text-gray-800">Add New Lead</h2>
+                <button onclick="closeModal('newModal')" class="text-gray-500 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <form id="enquiryForm" onsubmit="saveNewEnquiry(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Name</label>
+                    <input type="text" id="newName" required class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" placeholder="Student or Parent">
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Phone / WhatsApp</label>
+                    <input type="tel" id="newPhone" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" placeholder="+1 234 567 8900">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Country</label>
+                        <select id="newCountrySelect" onchange="toggleCustom('newCountry')" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50">
+                            <option value="USA">🇺🇸 USA</option>
+                            <option value="Canada">🇨🇦 Canada</option>
+                            <option value="UK">🇬🇧 UK</option>
+                            <option value="Australia">🇦🇺 Australia</option>
+                            <option value="Singapore">🇸🇬 Singapore</option>
+                            <option value="Dubai">🇦🇪 Dubai</option>
+                            <option value="Custom">➕ Add Custom...</option>
+                        </select>
+                        <input type="text" id="newCountryCustom" placeholder="Type country" class="hidden w-full mt-2 p-3 border border-indigo-300 rounded-xl bg-indigo-50">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Source</label>
+                        <select id="newSourceSelect" onchange="toggleCustom('newSource')" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50">
+                            <option value="Instagram">Instagram</option>
+                            <option value="WhatsApp">WhatsApp</option>
+                            <option value="Messenger">Messenger</option>
+                            <option value="Meta Ads">Meta Ads</option>
+                            <option value="Custom">➕ Add Custom...</option>
+                        </select>
+                        <input type="text" id="newSourceCustom" placeholder="Type source" class="hidden w-full mt-2 p-3 border border-indigo-300 rounded-xl bg-indigo-50">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Initial Status</label>
+                    <select id="newStatus" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 font-semibold">
+                        <option value="Cold">❄️ Cold</option>
+                        <option value="Hot">🔥 Hot</option>
+                        <option value="Demo Booked">📅 Demo Booked</option>
+                        <option value="Admission Done">✅ Admission Done</option>
+                        <option value="Dropped">❌ Dropped</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Initial Note</label>
+                    <textarea id="newNotes" rows="2" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" placeholder="Grade level, requirements, ad clicked..."></textarea>
+                </div>
+
+                <button type="submit" id="saveNewBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg mt-4 transition-colors">Create Lead</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- LEAD DETAILS & HISTORY MODAL -->
+    <div id="detailsModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex flex-col justify-end sm:items-center sm:justify-center">
+        <div class="bg-gray-50 w-full sm:w-[600px] rounded-t-3xl sm:rounded-2xl flex flex-col max-h-[92vh] slide-over shadow-2xl">
+            
+            <!-- Header -->
+            <div class="bg-white px-5 py-4 rounded-t-3xl sm:rounded-t-2xl border-b sticky top-0 z-20 flex justify-between items-start">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span id="detailFlag" class="text-xl">🇺🇸</span>
+                        <h2 id="detailName" class="text-xl font-bold text-gray-900 leading-none">John Doe</h2>
+                    </div>
+                    <div class="flex items-center space-x-3 mt-2 text-sm text-gray-500">
+                        <span id="detailSource" class="bg-gray-100 px-2 py-0.5 rounded text-xs"><i class="fab fa-instagram"></i> IG</span>
+                        <a id="detailPhone" href="#" class="text-indigo-600 font-medium"><i class="fas fa-phone-alt mr-1"></i> <span>No Phone</span></a>
+                    </div>
+                </div>
+                <button onclick="closeModal('detailsModal')" class="text-gray-400 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Body (Scrollable) -->
+            <div class="overflow-y-auto flex-1 p-5">
+                
+                <!-- Add Update Form -->
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                    <h3 class="text-sm font-bold text-gray-700 mb-3 border-b pb-2"><i class="fas fa-pen mr-1 text-indigo-500"></i> Add Interaction / Update Stage</h3>
+                    <form onsubmit="saveHistoryUpdate(event)">
+                        <input type="hidden" id="updateId">
+                        
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div class="col-span-2 sm:col-span-1">
+                                <label class="text-xs font-bold text-gray-500 uppercase">Change Stage</label>
+                                <select id="updateStatus" onchange="onStatusSelectChange()" class="w-full mt-1 p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm font-semibold">
+                                    <option value="Cold">❄️ Cold</option>
+                                    <option value="Hot">🔥 Hot</option>
+                                    <option value="Demo Booked">📅 Demo Booked</option>
+                                    <option value="Admission Done">✅ Admission Done</option>
+                                    <option value="Dropped">❌ Dropped</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label id="updateNoteLabel" class="text-xs font-bold text-gray-500 uppercase">Remark / Note</label>
+                            <textarea id="updateNote" rows="2" class="w-full mt-1 p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm" placeholder="What happened?"></textarea>
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <button type="submit" id="saveUpdateBtn" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold text-sm shadow hover:bg-indigo-700 transition-colors">Save Update</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- History Timeline -->
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 ml-1">Audit Trail & History</h3>
+                <div id="timelineContainer" class="relative bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    <!-- Timeline items injected here -->
+                </div>
+
+                <div class="mt-6 text-center">
+                    <button onclick="deleteLead()" class="text-xs font-semibold text-red-500 hover:text-red-700 py-2 px-4 rounded-lg bg-red-50">
+                        <i class="fas fa-trash mr-1"></i> Permanently Delete Lead
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. Initialize Firebase
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let currentUser = null;
+        let unsubscribeSnapshot = null;
+        
+        // Globals for UI
+        window.enquiries = [];
+        window.db = db;
+        window.appId = appId;
+        window.currentUser = null;
+
+        // Configuration Arrays
+        const STAGE_COLORS = {
+            'Cold': { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', hex: '#6b7280' },
+            'Hot': { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200', hex: '#f97316' },
+            'Demo Booked': { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200', hex: '#8b5cf6' },
+            'Admission Done': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200', hex: '#22c55e' },
+            'Dropped': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200', hex: '#ef4444' }
+        };
+
+        const COUNTRY_FLAGS = {
+            'USA': '🇺🇸', 'Canada': '🇨🇦', 'UK': '🇬🇧', 'Australia': '🇦🇺', 
+            'Singapore': '🇸🇬', 'Dubai': '🇦🇪'
+        };
+
+        // 2. Authenticate
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                window.currentUser = user;
+                fetchData();
+            }
+        });
+
+        initAuth();
+
+        // 3. Fetch Data
+        function fetchData() {
+            if (!currentUser) return;
+            const enquiriesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'enquiries');
+            
+            unsubscribeSnapshot = onSnapshot(enquiriesRef, (snapshot) => {
+                window.enquiries = [];
+                snapshot.forEach((doc) => {
+                    let data = doc.data();
+                    // Migrate old data on the fly if needed
+                    if(!data.history) {
+                        data.history = [{ timestamp: data.timestamp || Date.now(), action: 'Imported', note: data.notes || '', status: data.status }];
+                    }
+                    window.enquiries.push({ id: doc.id, ...data });
+                });
+                
+                // Sort by last updated (last history item)
+                window.enquiries.sort((a, b) => {
+                    let aTime = a.history && a.history.length > 0 ? a.history[a.history.length-1].timestamp : 0;
+                    let bTime = b.history && b.history.length > 0 ? b.history[b.history.length-1].timestamp : 0;
+                    return bTime - aTime;
+                });
+                
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('enquiryList').classList.remove('hidden');
+                window.renderUI();
+            }, (error) => console.error("Firestore error:", error));
+        }
+
+        // --- UI Rendering ---
+        window.renderUI = function() {
+            const filter = document.getElementById('countryFilter').value;
+            const list = document.getElementById('enquiryList');
+            const empty = document.getElementById('emptyState');
+            
+            const filtered = filter === 'All' ? window.enquiries : window.enquiries.filter(x => x.country === filter);
+
+            // Update Counts based on ALL data, not just filtered
+            document.getElementById('countCold').innerText = window.enquiries.filter(x => x.status === 'Cold').length;
+            document.getElementById('countHot').innerText = window.enquiries.filter(x => x.status === 'Hot').length;
+            document.getElementById('countDemo').innerText = window.enquiries.filter(x => x.status === 'Demo Booked').length;
+            document.getElementById('countAdmission').innerText = window.enquiries.filter(x => x.status === 'Admission Done').length;
+            document.getElementById('countDropped').innerText = window.enquiries.filter(x => x.status === 'Dropped').length;
+
+            list.innerHTML = '';
+            
+            if (filtered.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            } else {
+                empty.classList.add('hidden');
+            }
+
+            filtered.forEach(item => {
+                const colors = STAGE_COLORS[item.status] || STAGE_COLORS['Cold'];
+                const flag = COUNTRY_FLAGS[item.country] || '🌍';
+                
+                let sourceIcon = item.source.toLowerCase().includes('insta') ? 'fa-instagram text-pink-600' : 
+                                 item.source.toLowerCase().includes('whatsapp') ? 'fa-whatsapp text-green-500' : 
+                                 item.source.toLowerCase().includes('ad') ? 'fa-bullhorn text-blue-600' :
+                                 'fa-facebook-messenger text-blue-500';
+
+                // Get latest note from history
+                let latestNote = "No notes.";
+                if(item.history && item.history.length > 0) {
+                    for(let i = item.history.length - 1; i >= 0; i--) {
+                        if(item.history[i].note) {
+                            latestNote = item.history[i].note;
+                            break;
+                        }
+                    }
+                }
+
+                const card = `
+                    <div onclick="openDetails('${item.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative mb-3 cursor-pointer active:scale-[0.98] transition-transform hover:shadow-md">
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center space-x-3 w-full">
+                                <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl flex-shrink-0">
+                                    ${flag}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex justify-between items-center w-full">
+                                        <h3 class="font-bold text-gray-900 truncate pr-2 text-lg">${item.name}</h3>
+                                        <span class="${colors.bg} ${colors.text} ${colors.border} border px-2 py-0.5 rounded-md text-[10px] font-bold uppercase whitespace-nowrap shadow-sm">
+                                            ${item.status}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                                        <span class="flex items-center"><i class="fab ${sourceIcon} mr-1"></i> ${item.source}</span>
+                                        ${item.phone ? `<span class="truncate pl-1 border-l border-gray-300">• <i class="fas fa-phone-alt text-[10px]"></i> ${item.phone}</span>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 bg-gray-50 p-2.5 rounded-lg text-sm text-gray-600 border border-gray-100 line-clamp-2 italic">
+                            "${latestNote}"
+                        </div>
+                    </div>
+                `;
+                list.innerHTML += card;
+            });
+        };
+
+        // --- Interaction Logic ---
+
+        window.toggleCustom = function(prefix) {
+            const select = document.getElementById(prefix + 'Select');
+            const custom = document.getElementById(prefix + 'Custom');
+            if (select.value === 'Custom') {
+                custom.classList.remove('hidden');
+                custom.required = true;
+            } else {
+                custom.classList.add('hidden');
+                custom.required = false;
+            }
+        };
+
+        window.onStatusSelectChange = function() {
+            const status = document.getElementById('updateStatus').value;
+            const label = document.getElementById('updateNoteLabel');
+            const noteInput = document.getElementById('updateNote');
+            
+            if(status === 'Dropped') {
+                label.innerHTML = 'Reason for dropping / Why lost? <span class="text-red-500">*</span>';
+                noteInput.required = true;
+                noteInput.placeholder = "Competitor? Price? No response?";
+            } else {
+                label.innerText = 'Remark / Note';
+                noteInput.required = false;
+                noteInput.placeholder = "What happened?";
+            }
+        };
+
+        window.openNewModal = function() {
+            document.getElementById('enquiryForm').reset();
+            document.getElementById('newCountryCustom').classList.add('hidden');
+            document.getElementById('newSourceCustom').classList.add('hidden');
+            document.getElementById('newModal').classList.remove('hidden');
+        };
+
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.add('hidden');
+        };
+
+        window.openDetails = function(id) {
+            const item = window.enquiries.find(x => x.id === id);
+            if(!item) return;
+
+            document.getElementById('updateId').value = id;
+            document.getElementById('detailName').innerText = item.name;
+            document.getElementById('detailFlag').innerText = COUNTRY_FLAGS[item.country] || '🌍';
+            document.getElementById('detailSource').innerHTML = `${item.source}`;
+            
+            if(item.phone) {
+                document.getElementById('detailPhone').innerHTML = `<i class="fas fa-phone-alt mr-1"></i> <span>${item.phone}</span>`;
+                document.getElementById('detailPhone').href = `tel:${item.phone}`;
+                document.getElementById('detailPhone').classList.remove('hidden');
+            } else {
+                document.getElementById('detailPhone').classList.add('hidden');
+            }
+
+            // Set update form to current status
+            document.getElementById('updateStatus').value = item.status;
+            document.getElementById('updateNote').value = '';
+            window.onStatusSelectChange(); // Reset labels
+
+            // Render Timeline
+            const tl = document.getElementById('timelineContainer');
+            if(item.history && item.history.length > 0) {
+                // Reverse array to show newest at top
+                const historyRev = [...item.history].reverse();
+                tl.innerHTML = '<div class="timeline-line"></div>' + historyRev.map(h => {
+                    const colors = STAGE_COLORS[h.status] || STAGE_COLORS['Cold'];
+                    const dateObj = new Date(h.timestamp);
+                    const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
+
+                    return `
+                        <div class="timeline-item mb-5">
+                            <div class="timeline-dot" style="background-color: ${colors.hex};"></div>
+                            <div class="flex items-center space-x-2 mb-0.5">
+                                <span class="text-xs font-bold text-gray-400">${dateStr}, ${timeStr}</span>
+                            </div>
+                            <div class="text-sm font-bold text-gray-800 flex items-center">
+                                ${h.action}
+                                <span class="${colors.bg} ${colors.text} ml-2 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">${h.status}</span>
+                            </div>
+                            ${h.note ? `<div class="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg mt-2 border border-gray-100 shadow-inner">${h.note}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                tl.innerHTML = '<p class="text-sm text-gray-500 italic">No history found.</p>';
+            }
+
+            document.getElementById('detailsModal').classList.remove('hidden');
+        };
+
+        // --- Database Operations ---
+
+        window.saveNewEnquiry = async function(e) {
+            e.preventDefault();
+            if(!window.currentUser) return;
+
+            const btn = document.getElementById('saveNewBtn');
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+
+            // Resolve custom inputs
+            const countrySelect = document.getElementById('newCountrySelect').value;
+            const country = countrySelect === 'Custom' ? document.getElementById('newCountryCustom').value : countrySelect;
+            
+            const sourceSelect = document.getElementById('newSourceSelect').value;
+            const source = sourceSelect === 'Custom' ? document.getElementById('newSourceCustom').value : sourceSelect;
+
+            const initialStatus = document.getElementById('newStatus').value;
+            const initialNote = document.getElementById('newNotes').value;
+
+            const timestamp = Date.now();
+
+            const data = {
+                name: document.getElementById('newName').value,
+                phone: document.getElementById('newPhone').value || '',
+                country: country || 'Unknown',
+                source: source || 'Unknown',
+                status: initialStatus,
+                history: [
+                    { 
+                        timestamp: timestamp, 
+                        action: 'Lead Created', 
+                        note: initialNote, 
+                        status: initialStatus 
+                    }
+                ],
+                timestamp: timestamp
+            };
+
+            const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
+
+            try {
+                await addDoc(colRef, data);
+                window.closeModal('newModal');
+            } catch (error) {
+                console.error("Error saving:", error);
+            } finally {
+                btn.innerText = "Create Lead";
+                btn.disabled = false;
+            }
+        };
+
+        window.saveHistoryUpdate = async function(e) {
+            e.preventDefault();
+            if(!window.currentUser) return;
+
+            const btn = document.getElementById('saveUpdateBtn');
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+
+            const id = document.getElementById('updateId').value;
+            const newStatus = document.getElementById('updateStatus').value;
+            const note = document.getElementById('updateNote').value;
+            
+            // Find current item to append history
+            const item = window.enquiries.find(x => x.id === id);
+            if(!item) return;
+
+            const actionLabel = item.status === newStatus ? 'Note Added' : 'Stage Changed';
+            
+            const newHistoryItem = {
+                timestamp: Date.now(),
+                action: actionLabel,
+                note: note,
+                status: newStatus
+            };
+
+            const updatedHistory = [...(item.history || []), newHistoryItem];
+
+            const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
+
+            try {
+                await updateDoc(docRef, { 
+                    status: newStatus, 
+                    history: updatedHistory,
+                    timestamp: Date.now() // Update main timestamp so it sorts to top
+                });
+                // Re-open details modal with fresh data visually
+                item.status = newStatus;
+                item.history = updatedHistory;
+                window.openDetails(id);
+                document.getElementById('updateNote').value = ''; // clear note input
+            } catch (error) {
+                console.error("Error updating:", error);
+            } finally {
+                btn.innerText = "Save Update";
+                btn.disabled = false;
+            }
+        };
+
+        window.deleteLead = async function() {
+            const id = document.getElementById('updateId').value;
+            if(!window.currentUser || !id) return;
+            
+            if(confirm('Are you sure you want to permanently delete this lead and its entire history?')) {
+                const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
+                await deleteDoc(docRef);
+                window.closeModal('detailsModal');
+            }
+        };
+    </script>
+</body>
+</html>
