@@ -14,6 +14,19 @@
         .timeline-line { position: absolute; left: 15px; top: 8px; bottom: 0; width: 2px; background: #e5e7eb; z-index: 0; }
         .timeline-item { position: relative; z-index: 1; padding-left: 36px; }
         .timeline-dot { position: absolute; left: 11px; top: 6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #e5e7eb;}
+        
+        /* Fix for iOS Date Input alignment and overflow */
+        input[type="date"] {
+            -webkit-appearance: none;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+        }
+        /* Ensures the text is visible and aligned on iOS */
+        input[type="date"]::-webkit-date-and-time-value {
+            text-align: left;
+            margin-left: 36px; /* Space for the absolute label */
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 pb-24">
@@ -47,14 +60,14 @@
     </div>
 
     <!-- Date Filters -->
-    <div class="px-4 mb-4 grid grid-cols-2 gap-2">
-        <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">From</span>
-            <input type="date" id="filterFrom" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-12 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+    <div class="px-4 mb-4 grid grid-cols-2 gap-2 overflow-hidden">
+        <div class="relative min-w-0">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 uppercase pointer-events-none z-10">From</span>
+            <input type="date" id="filterFrom" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none block box-border">
         </div>
-        <div class="relative">
-            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">To</span>
-            <input type="date" id="filterTo" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+        <div class="relative min-w-0">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 uppercase pointer-events-none z-10">To</span>
+            <input type="date" id="filterTo" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none block box-border">
         </div>
     </div>
 
@@ -213,7 +226,6 @@
 
         const STORAGE_KEY = 'geniushub_local_v2';
 
-        // Load data on start
         function initApp() {
             const savedData = localStorage.getItem(STORAGE_KEY);
             if (savedData) {
@@ -228,7 +240,6 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify({ leads, stages }));
         }
 
-        // --- UI Rendering ---
         window.renderUI = () => {
             const container = document.getElementById('enquiryList');
             const empty = document.getElementById('emptyState');
@@ -239,7 +250,6 @@
             followBadge.innerText = tasksToday.length;
             followBadge.classList.toggle('hidden', tasksToday.length === 0);
 
-            // Render Stages Stats
             const statsList = document.getElementById('statusStatsList');
             statsList.innerHTML = stages.map(s => {
                 const count = leads.filter(l => l.statusId === s.id).length;
@@ -253,7 +263,6 @@
             document.getElementById('countAll').innerText = leads.length;
             document.getElementById('stat-All').classList.toggle('active-filter', currentStatusFilter === 'All');
 
-            // Filtering
             let filtered = [...leads];
             if (currentView === 'followups') {
                 filtered = tasksToday;
@@ -304,7 +313,6 @@
             }
         };
 
-        // --- Interaction Handlers ---
         window.setStatusFilter = (id) => { currentStatusFilter = id; currentView = 'pipeline'; renderUI(); };
         window.toggleView = (v) => { currentView = currentView === v ? 'pipeline' : v; renderUI(); };
         window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
@@ -389,7 +397,6 @@
             renderUI();
         };
 
-        // --- Settings Management ---
         window.openSettingsModal = () => {
             const list = document.getElementById('stagesManagerList');
             list.innerHTML = stages.map(s => `
