@@ -3,214 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeniusHub Pipeline CRM</title>
+    <title>GeniusHub CRM Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { -webkit-tap-highlight-color: transparent; }
-        .slide-over { transition: transform 0.3s ease-in-out; }
-        .loader { border-top-color: #4f46e5; animation: spinner 1.5s linear infinite; }
-        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Timeline specific CSS */
+        .active-filter { border-width: 2px !important; transform: scale(1.05); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .loader { border-top-color: #4f46e5; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .timeline-line { position: absolute; left: 15px; top: 8px; bottom: 0; width: 2px; background: #e5e7eb; z-index: 0; }
         .timeline-item { position: relative; z-index: 1; padding-left: 36px; }
         .timeline-dot { position: absolute; left: 11px; top: 6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #e5e7eb;}
     </style>
 </head>
-<body class="bg-gray-50 font-sans text-gray-800 pb-20">
+<body class="bg-gray-50 text-gray-800 pb-24">
 
-    <!-- Sticky Header -->
-    <div class="fixed top-0 w-full bg-white shadow-sm z-40 px-4 py-3 flex justify-between items-center">
-        <h1 class="font-bold text-lg text-indigo-700 leading-tight">GeniusHub<span class="text-xs text-gray-500 block font-normal">Pipeline Tracker</span></h1>
+    <!-- Header -->
+    <header class="fixed top-0 w-full bg-white shadow-sm z-40 px-4 py-3 flex justify-between items-center">
+        <div>
+            <h1 class="font-bold text-indigo-700 leading-tight">GeniusHub <span class="text-gray-900">CRM</span></h1>
+            <p id="currentViewLabel" class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">All Leads</p>
+        </div>
         
-        <div class="flex items-center space-x-2">
-            <select id="countryFilter" onchange="renderUI()" class="bg-gray-100 text-sm border-none rounded-full px-3 py-1.5 focus:ring-0 shadow-inner">
-                <option value="All">All Regions</option>
-                <option value="USA">🇺🇸 USA</option>
-                <option value="Canada">🇨🇦 Canada</option>
-                <option value="UK">🇬🇧 UK</option>
-                <option value="Australia">🇦🇺 Australia</option>
-                <option value="Singapore">🇸🇬 Singapore</option>
-                <option value="Dubai">🇦🇪 Dubai</option>
-            </select>
-            <button onclick="openSettingsModal()" class="text-gray-500 hover:text-indigo-600 transition-colors p-2 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center">
-                <i class="fas fa-cog"></i>
+        <div class="flex items-center space-x-3">
+            <button onclick="toggleView('followups')" id="followupBtn" class="relative text-gray-500 hover:text-indigo-600 transition-colors p-2 bg-gray-100 rounded-lg">
+                <i class="fas fa-calendar-check"></i>
+                <span id="followupBadge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1 rounded-full border-2 border-white">0</span>
+            </button>
+            <button onclick="openSettingsModal()" class="text-gray-500 hover:text-indigo-600 transition-colors p-2 bg-gray-100 rounded-lg">
+                <i class="fas fa-sliders-h"></i>
             </button>
         </div>
-    </div>
+    </header>
 
-    <!-- Scrollable Stats Bar -->
-    <div class="mt-16 px-4 mb-3 flex space-x-2 overflow-x-auto no-scrollbar py-1">
-        <div class="bg-gray-200 text-gray-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-gray-300">
-            Cold: <span id="countCold">0</span>
-        </div>
-        <div class="bg-orange-100 text-orange-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-orange-200">
-            Hot: <span id="countHot">0</span>
-        </div>
-        <div class="bg-purple-100 text-purple-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-purple-200">
-            Demo Booked: <span id="countDemo">0</span>
-        </div>
-        <div class="bg-green-100 text-green-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-green-200">
-            Admission: <span id="countAdmission">0</span>
-        </div>
-        <div class="bg-red-100 text-red-800 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm border border-red-200">
-            Dropped: <span id="countDropped">0</span>
+    <!-- Filter Bar (Stats) -->
+    <div class="mt-16 px-4 mb-2 flex space-x-2 overflow-x-auto no-scrollbar py-2">
+        <button onclick="setStatusFilter('All')" id="stat-All" class="flex-shrink-0 bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition-all active-filter">
+            All <span id="countAll" class="ml-1 text-gray-400">0</span>
+        </button>
+        <div id="statusStatsList" class="flex space-x-2">
+            <!-- Dynamic Status Buttons -->
         </div>
     </div>
 
-    <!-- Loading State -->
-    <div id="loadingState" class="flex flex-col items-center justify-center mt-20">
+    <!-- Date Filters -->
+    <div class="px-4 mb-4 grid grid-cols-2 gap-2">
+        <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">From</span>
+            <input type="date" id="filterFrom" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-12 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+        </div>
+        <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">To</span>
+            <input type="date" id="filterTo" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main id="loadingState" class="flex flex-col items-center justify-center mt-20">
         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10 mb-3"></div>
-        <p class="text-gray-500 text-sm font-medium">Syncing database...</p>
+        <p class="text-gray-400 text-sm font-medium">Syncing pipeline...</p>
+    </main>
+
+    <div id="enquiryList" class="px-4 space-y-3 hidden"></div>
+
+    <div id="emptyState" class="hidden flex flex-col items-center justify-center mt-32 text-gray-400 px-10 text-center">
+        <i class="fas fa-filter text-5xl mb-4 text-gray-200"></i>
+        <p class="font-semibold text-gray-500">No leads found</p>
+        <p class="text-xs mt-1">Try changing filters or add a new lead to start your pipeline.</p>
     </div>
 
-    <!-- Main List Container -->
-    <div id="enquiryList" class="px-4 space-y-3 hidden">
-        <!-- Cards injected here -->
-    </div>
-
-    <!-- Empty State -->
-    <div id="emptyState" class="hidden flex flex-col items-center justify-center mt-32 text-gray-400">
-        <i class="fas fa-folder-open text-5xl mb-3 text-gray-300"></i>
-        <p class="font-medium">Pipeline is empty.</p>
-    </div>
-
-    <!-- Floating Action Button -->
-    <button onclick="openNewModal()" class="fixed bottom-6 right-6 bg-indigo-600 text-white w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-2xl active:scale-95 transition-transform z-30">
+    <!-- FAB -->
+    <button onclick="openNewModal()" class="fixed bottom-6 right-6 bg-indigo-600 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl active:scale-95 transition-transform z-30">
         <i class="fas fa-plus"></i>
     </button>
 
-    <!-- NEW ENQUIRY MODAL -->
-    <div id="newModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-end sm:items-center justify-center">
-        <div class="bg-white w-full sm:w-[500px] rounded-t-3xl sm:rounded-2xl p-6 slide-over max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-5 sticky top-0 bg-white z-10 py-2 border-b">
-                <h2 class="text-xl font-bold text-gray-800">Add New Lead</h2>
-                <button onclick="closeModal('newModal')" class="text-gray-500 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+    <!-- NEW LEAD MODAL -->
+    <div id="newModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-[500px] rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">New Lead</h2>
+                <button onclick="closeModal('newModal')" class="bg-gray-100 w-8 h-8 rounded-full"><i class="fas fa-times text-gray-500 text-sm"></i></button>
             </div>
-            
-            <form id="enquiryForm" onsubmit="saveNewEnquiry(event)" class="space-y-4">
-                <div>
-                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Name</label>
-                    <input type="text" id="newName" required class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" placeholder="Student or Parent">
-                </div>
-
-                <div>
-                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Phone / WhatsApp</label>
-                    <input type="tel" id="newPhone" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" placeholder="+1 234 567 8900">
-                </div>
-
+            <form id="enquiryForm" onsubmit="handleSaveLead(event)" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Country</label>
-                        <select id="newCountrySelect" onchange="toggleCustom('newCountry')" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50">
-                            <option value="USA">🇺🇸 USA</option>
-                            <option value="Canada">🇨🇦 Canada</option>
-                            <option value="UK">🇬🇧 UK</option>
-                            <option value="Australia">🇦🇺 Australia</option>
-                            <option value="Singapore">🇸🇬 Singapore</option>
-                            <option value="Dubai">🇦🇪 Dubai</option>
-                            <option value="Custom">➕ Add Custom...</option>
-                        </select>
-                        <input type="text" id="newCountryCustom" placeholder="Type country" class="hidden w-full mt-2 p-3 border border-indigo-300 rounded-xl bg-indigo-50">
+                    <div class="col-span-2">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Lead Name</label>
+                        <input type="text" id="newName" required class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="Student or Parent Name">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Source</label>
-                        <select id="newSourceSelect" onchange="toggleCustom('newSource')" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50">
-                            <option value="Instagram">Instagram</option>
-                            <option value="WhatsApp">WhatsApp</option>
-                            <option value="Messenger">Messenger</option>
-                            <option value="Meta Ads">Meta Ads</option>
-                            <option value="Custom">➕ Add Custom...</option>
-                        </select>
-                        <input type="text" id="newSourceCustom" placeholder="Type source" class="hidden w-full mt-2 p-3 border border-indigo-300 rounded-xl bg-indigo-50">
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Phone</label>
+                        <input type="tel" id="newPhone" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="+1...">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Country</label>
+                        <input type="text" id="newCountry" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="USA, UK...">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Initial Stage</label>
+                        <select id="newStatus" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none"></select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-gray-400 uppercase">Source</label>
+                        <input type="text" id="newSource" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="Instagram, Ads...">
                     </div>
                 </div>
-
                 <div>
-                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Initial Status</label>
-                    <select id="newStatus" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 font-semibold">
-                        <option value="Cold">❄️ Cold</option>
-                        <option value="Hot">🔥 Hot</option>
-                        <option value="Demo Booked">📅 Demo Booked</option>
-                        <option value="Admission Done">✅ Admission Done</option>
-                        <option value="Dropped">❌ Dropped</option>
-                    </select>
+                    <label class="text-[10px] font-bold text-gray-400 uppercase">Initial Note</label>
+                    <textarea id="newNotes" rows="2" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="How did they find us? Requirements?"></textarea>
                 </div>
-
-                <div>
-                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Initial Note</label>
-                    <textarea id="newNotes" rows="2" class="w-full mt-1 p-3 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors" placeholder="Grade level, requirements, ad clicked..."></textarea>
-                </div>
-
-                <button type="submit" id="saveNewBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg mt-4 transition-colors">Create Lead</button>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition-all">Create Lead</button>
             </form>
         </div>
     </div>
 
-    <!-- LEAD DETAILS & HISTORY MODAL -->
-    <div id="detailsModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex flex-col justify-end sm:items-center sm:justify-center">
-        <div class="bg-gray-50 w-full sm:w-[600px] rounded-t-3xl sm:rounded-2xl flex flex-col max-h-[92vh] slide-over shadow-2xl">
-            
-            <!-- Header -->
-            <div class="bg-white px-5 py-4 rounded-t-3xl sm:rounded-t-2xl border-b sticky top-0 z-20 flex justify-between items-start">
+    <!-- DETAILS & FOLLOWUP MODAL -->
+    <div id="detailsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex flex-col justify-end sm:items-center sm:justify-center">
+        <div class="bg-white w-full sm:w-[600px] rounded-t-3xl sm:rounded-2xl flex flex-col max-h-[92vh]">
+            <div class="p-5 border-b flex justify-between items-start">
                 <div>
-                    <div class="flex items-center space-x-2">
-                        <span id="detailFlag" class="text-xl">🇺🇸</span>
-                        <h2 id="detailName" class="text-xl font-bold text-gray-900 leading-none">John Doe</h2>
-                    </div>
-                    <div class="flex items-center space-x-3 mt-2 text-sm text-gray-500">
-                        <span id="detailSource" class="bg-gray-100 px-2 py-0.5 rounded text-xs"><i class="fab fa-instagram"></i> IG</span>
-                        <a id="detailPhone" href="#" class="text-indigo-600 font-medium"><i class="fas fa-phone-alt mr-1"></i> <span>No Phone</span></a>
+                    <h2 id="detailName" class="text-xl font-bold">Name</h2>
+                    <div class="flex items-center space-x-2 mt-1 text-sm text-gray-500">
+                        <span id="detailLocSource">Location • Source</span>
                     </div>
                 </div>
-                <button onclick="closeModal('detailsModal')" class="text-gray-400 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-times"></i></button>
+                <button onclick="closeModal('detailsModal')" class="bg-gray-100 w-8 h-8 rounded-full"><i class="fas fa-times text-gray-500"></i></button>
             </div>
-
-            <!-- Body (Scrollable) -->
-            <div class="overflow-y-auto flex-1 p-5">
-                
-                <!-- Add Update Form -->
-                <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                    <h3 class="text-sm font-bold text-gray-700 mb-3 border-b pb-2"><i class="fas fa-pen mr-1 text-indigo-500"></i> Add Interaction / Update Stage</h3>
-                    <form onsubmit="saveHistoryUpdate(event)">
+            
+            <div class="flex-1 overflow-y-auto p-5">
+                <!-- Update Stage / Followup -->
+                <div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 mb-6">
+                    <h3 class="text-xs font-bold text-indigo-700 uppercase mb-3">Update Progress</h3>
+                    <form onsubmit="handleUpdateLead(event)" class="space-y-4">
                         <input type="hidden" id="updateId">
-                        
-                        <div class="grid grid-cols-2 gap-3 mb-3">
-                            <div class="col-span-2 sm:col-span-1">
-                                <label class="text-xs font-bold text-gray-500 uppercase">Change Stage</label>
-                                <select id="updateStatus" onchange="onStatusSelectChange()" class="w-full mt-1 p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm font-semibold">
-                                    <option value="Cold">❄️ Cold</option>
-                                    <option value="Hot">🔥 Hot</option>
-                                    <option value="Demo Booked">📅 Demo Booked</option>
-                                    <option value="Admission Done">✅ Admission Done</option>
-                                    <option value="Dropped">❌ Dropped</option>
-                                </select>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">New Stage</label>
+                                <select id="updateStatus" class="w-full mt-1 p-2.5 bg-white border border-gray-200 rounded-lg text-sm font-semibold"></select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-gray-400 uppercase">Set Follow-up</label>
+                                <input type="datetime-local" id="updateFollowup" class="w-full mt-1 p-2 bg-white border border-gray-200 rounded-lg text-sm">
                             </div>
                         </div>
-
-                        <div class="mb-3">
-                            <label id="updateNoteLabel" class="text-xs font-bold text-gray-500 uppercase">Remark / Note</label>
-                            <textarea id="updateNote" rows="2" class="w-full mt-1 p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-sm" placeholder="What happened?"></textarea>
+                        <div>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase">Add Remark</label>
+                            <textarea id="updateNote" rows="2" class="w-full mt-1 p-2.5 bg-white border border-gray-200 rounded-lg text-sm" placeholder="What happened in the latest talk?"></textarea>
                         </div>
-                        
-                        <div class="flex justify-end">
-                            <button type="submit" id="saveUpdateBtn" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold text-sm shadow hover:bg-indigo-700 transition-colors">Save Update</button>
-                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-bold text-sm shadow hover:bg-indigo-700">Save Update</button>
                     </form>
                 </div>
 
-                <!-- History Timeline -->
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 ml-1">Audit Trail & History</h3>
-                <div id="timelineContainer" class="relative bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                    <!-- Timeline items injected here -->
-                </div>
+                <!-- History -->
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 ml-1">Activity Log</h3>
+                <div id="timelineContainer" class="relative bg-white p-4 rounded-2xl border border-gray-100"></div>
 
-                <div class="mt-6 text-center">
-                    <button onclick="deleteLead()" class="text-xs font-semibold text-red-500 hover:text-red-700 py-2 px-4 rounded-lg bg-red-50">
-                        <i class="fas fa-trash mr-1"></i> Permanently Delete Lead
+                <div class="mt-8 pt-4 border-t text-center">
+                    <button onclick="handleDeleteLead()" class="text-red-500 text-xs font-bold px-4 py-2 bg-red-50 rounded-lg hover:bg-red-100">
+                        <i class="fas fa-trash-alt mr-1"></i> Delete Lead Permanently
                     </button>
                 </div>
             </div>
@@ -218,618 +169,439 @@
     </div>
 
     <!-- SETTINGS MODAL -->
-    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-end sm:items-center justify-center">
-        <div class="bg-white w-full sm:w-[400px] rounded-t-3xl sm:rounded-2xl p-6 slide-over max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-5 border-b pb-3">
-                <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-cog mr-2 text-indigo-500"></i>Settings</h2>
-                <button onclick="closeModal('settingsModal')" class="text-gray-500 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button>
+    <div id="settingsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full sm:w-[450px] rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Pipeline Settings</h2>
+                <button onclick="closeModal('settingsModal')" class="bg-gray-100 w-8 h-8 rounded-full"><i class="fas fa-times text-gray-500"></i></button>
             </div>
             
-            <div class="space-y-4">
-                <button onclick="exportData()" class="w-full flex items-center justify-center space-x-2 bg-blue-50 text-blue-700 border border-blue-200 py-3.5 rounded-xl font-bold hover:bg-blue-100 transition-colors">
-                    <i class="fas fa-download"></i> <span>Download Backup (.json)</span>
-                </button>
-                
-                <button onclick="triggerImport()" class="w-full flex items-center justify-center space-x-2 bg-green-50 text-green-700 border border-green-200 py-3.5 rounded-xl font-bold hover:bg-green-100 transition-colors">
-                    <i class="fas fa-upload"></i> <span>Restore Backup</span>
-                </button>
-                <input type="file" id="importFile" accept=".json" class="hidden" onchange="handleImport(event)">
-            </div>
-            <p class="text-xs text-gray-400 mt-4 text-center">Restoring will merge and overwrite existing leads with matching IDs from the backup file.</p>
+            <section class="mb-8">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Manage Stages</h3>
+                <div id="stagesManagerList" class="space-y-3 mb-4">
+                    <!-- List of current stages with delete buttons -->
+                </div>
+                <div class="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Add New Stage</p>
+                    <div class="flex space-x-2">
+                        <input type="text" id="newStageName" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm" placeholder="Stage Name">
+                        <input type="color" id="newStageColor" class="w-10 h-10 border-none bg-transparent cursor-pointer" value="#6366f1">
+                        <button onclick="handleAddStage()" class="bg-indigo-600 text-white px-4 rounded-lg"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="border-t pt-6">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Data Management</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="handleExport()" class="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100 font-bold hover:bg-blue-100">
+                        <i class="fas fa-download text-xl mb-2"></i>
+                        <span class="text-xs">Export JSON</span>
+                    </button>
+                    <button onclick="document.getElementById('importFile').click()" class="flex flex-col items-center justify-center p-4 bg-green-50 text-green-700 rounded-2xl border border-green-100 font-bold hover:bg-green-100">
+                        <i class="fas fa-upload text-xl mb-2"></i>
+                        <span class="text-xs">Import JSON</span>
+                    </button>
+                    <input type="file" id="importFile" class="hidden" accept=".json" onchange="handleImport(event)">
+                </div>
+            </section>
         </div>
     </div>
 
-    <!-- CONFIRM MODAL -->
-    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-60 z-[60] hidden flex items-center justify-center">
-        <div class="bg-white w-[90%] sm:w-[350px] rounded-2xl p-6 text-center shadow-2xl scale-95 transition-transform">
-            <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
-            <h3 id="confirmTitle" class="text-lg font-bold text-gray-900 mb-2">Are you sure?</h3>
-            <p id="confirmMessage" class="text-sm text-gray-500 mb-6">This action cannot be undone.</p>
-            <div class="flex space-x-3">
-                <button onclick="closeConfirmModal()" class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-bold hover:bg-gray-200">Cancel</button>
-                <button id="confirmActionBtn" class="flex-1 bg-indigo-600 text-white py-2.5 rounded-xl font-bold hover:bg-indigo-700">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- NOTIFY MODAL -->
-    <div id="notifyModal" class="fixed inset-0 bg-black bg-opacity-60 z-[60] hidden flex items-center justify-center">
-        <div class="bg-white w-[90%] sm:w-[350px] rounded-2xl p-6 text-center shadow-2xl scale-95 transition-transform">
-            <i id="notifyIcon" class="fas fa-check-circle text-4xl text-green-500 mb-4"></i>
-            <h3 id="notifyTitle" class="text-lg font-bold text-gray-900 mb-2">Success</h3>
-            <p id="notifyMessage" class="text-sm text-gray-500 mb-6">Action completed.</p>
-            <button onclick="closeNotifyModal()" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl font-bold hover:bg-indigo-700">OK</button>
-        </div>
-    </div>
-
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 1. CONFIGURATION ---
-        // ⚠️ IF YOU WANT CLOUD SYNC (Zapier/Make.com integration):
-        // Replace this object with your own Firebase Config from console.firebase.google.com
-        const myFirebaseConfig = {
-            // apiKey: "YOUR_API_KEY",
-            // authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            // projectId: "YOUR_PROJECT_ID",
-            // storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            // messagingSenderId: "YOUR_SENDER_ID",
-            // appId: "YOUR_APP_ID"
-        };
+        // Firebase Setup
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'geniushub-crm-v2';
 
-        const isHostedHere = typeof __firebase_config !== 'undefined';
-        const firebaseConfig = isHostedHere ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        const useCloud = Object.keys(firebaseConfig).length > 0;
-        
-        let app, auth, db;
-        if(useCloud) {
-            try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-            } catch(e) {
-                console.error("Firebase init failed, falling back to local.");
-            }
-        }
+        // State
+        let user = null;
+        let leads = [];
+        let stages = [
+            { id: 'cold', label: '❄️ Cold', color: '#94a3b8' },
+            { id: 'hot', label: '🔥 Hot', color: '#f97316' },
+            { id: 'demo', label: '📅 Demo Booked', color: '#8b5cf6' },
+            { id: 'done', label: '✅ Admission Done', color: '#22c55e' },
+            { id: 'dropped', label: '❌ Dropped', color: '#ef4444' }
+        ];
+        let currentStatusFilter = 'All';
+        let currentView = 'pipeline'; // 'pipeline' or 'followups'
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'geniushub-crm-default';
-
-        let currentUser = null;
-        let unsubscribeSnapshot = null;
-        
-        // Globals for UI
-        window.enquiries = [];
-        window.db = db;
-        window.appId = appId;
-        window.currentUser = null;
-        window.useCloud = useCloud && db;
-
-        // Configuration Arrays
-        const STAGE_COLORS = {
-            'Cold': { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', hex: '#6b7280' },
-            'Hot': { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-200', hex: '#f97316' },
-            'Demo Booked': { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200', hex: '#8b5cf6' },
-            'Admission Done': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200', hex: '#22c55e' },
-            'Dropped': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200', hex: '#ef4444' }
-        };
-
-        const COUNTRY_FLAGS = {
-            'USA': '🇺🇸', 'Canada': '🇨🇦', 'UK': '🇬🇧', 'Australia': '🇦🇺', 
-            'Singapore': '🇸🇬', 'Dubai': '🇦🇪'
-        };
-
-        // --- 2. INITIALIZATION (Cloud vs Local) ---
-        async function initApp() {
-            if(window.useCloud) {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Auth error:", error);
-                    fallbackToLocal();
-                }
+        // Auth Init
+        async function initAuth() {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
             } else {
-                fallbackToLocal();
+                await signInAnonymously(auth);
             }
         }
 
-        function fallbackToLocal() {
-            window.useCloud = false;
-            const localData = localStorage.getItem('geniusHubData');
-            if(localData) {
-                window.enquiries = JSON.parse(localData);
-            }
-            document.getElementById('loadingState').classList.add('hidden');
-            document.getElementById('enquiryList').classList.remove('hidden');
-            window.renderUI();
-        }
+        // --- Core UI Logic ---
 
-        if(window.useCloud) {
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    currentUser = user;
-                    window.currentUser = user;
-                    fetchData();
-                } else {
-                    fallbackToLocal();
-                }
-            });
-        }
-
-        // --- 3. FETCH DATA ---
-        function fetchData() {
-            if (!window.useCloud || !currentUser) return;
-            const enquiriesRef = collection(db, 'artifacts', appId, 'users', currentUser.uid, 'enquiries');
-            
-            unsubscribeSnapshot = onSnapshot(enquiriesRef, (snapshot) => {
-                window.enquiries = [];
-                snapshot.forEach((doc) => {
-                    let data = doc.data();
-                    if(!data.history) {
-                        data.history = [{ timestamp: data.timestamp || Date.now(), action: 'Imported', note: data.notes || '', status: data.status }];
-                    }
-                    window.enquiries.push({ id: doc.id, ...data });
-                });
-                
-                window.enquiries.sort((a, b) => {
-                    let aTime = a.history && a.history.length > 0 ? a.history[a.history.length-1].timestamp : 0;
-                    let bTime = b.history && b.history.length > 0 ? b.history[b.history.length-1].timestamp : 0;
-                    return bTime - aTime;
-                });
-                
-                document.getElementById('loadingState').classList.add('hidden');
-                document.getElementById('enquiryList').classList.remove('hidden');
-                window.renderUI();
-            }, (error) => {
-                console.error("Firestore error:", error);
-                fallbackToLocal();
-            });
-        }
-
-        // --- UI Rendering ---
-        window.renderUI = function() {
-            const filter = document.getElementById('countryFilter').value;
-            const list = document.getElementById('enquiryList');
+        window.renderUI = () => {
+            const container = document.getElementById('enquiryList');
             const empty = document.getElementById('emptyState');
+            const followBadge = document.getElementById('followupBadge');
             
-            const filtered = filter === 'All' ? window.enquiries : window.enquiries.filter(x => x.country === filter);
+            // 1. Get Today's Follow-ups
+            const today = new Date().toISOString().split('T')[0];
+            const tasksToday = leads.filter(l => l.followupDate && l.followupDate.startsWith(today));
+            followBadge.innerText = tasksToday.length;
+            followBadge.classList.toggle('hidden', tasksToday.length === 0);
 
-            // Update Counts based on ALL data, not just filtered
-            document.getElementById('countCold').innerText = window.enquiries.filter(x => x.status === 'Cold').length;
-            document.getElementById('countHot').innerText = window.enquiries.filter(x => x.status === 'Hot').length;
-            document.getElementById('countDemo').innerText = window.enquiries.filter(x => x.status === 'Demo Booked').length;
-            document.getElementById('countAdmission').innerText = window.enquiries.filter(x => x.status === 'Admission Done').length;
-            document.getElementById('countDropped').innerText = window.enquiries.filter(x => x.status === 'Dropped').length;
+            // 2. Render Status Stats Bar
+            const statsList = document.getElementById('statusStatsList');
+            statsList.innerHTML = stages.map(s => {
+                const count = leads.filter(l => l.statusId === s.id).length;
+                const isActive = currentStatusFilter === s.id;
+                return `
+                    <button onclick="setStatusFilter('${s.id}')" id="stat-${s.id}" class="flex-shrink-0 bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition-all ${isActive ? 'active-filter' : ''}">
+                        <span style="color: ${s.color}">${s.label}</span> <span class="ml-1 text-gray-400">${count}</span>
+                    </button>
+                `;
+            }).join('');
+            document.getElementById('countAll').innerText = leads.length;
+            document.getElementById('stat-All').classList.toggle('active-filter', currentStatusFilter === 'All');
 
-            list.innerHTML = '';
+            // 3. Filtering Logic
+            let filtered = [...leads];
             
+            // Filter by View
+            if (currentView === 'followups') {
+                filtered = tasksToday;
+                document.getElementById('currentViewLabel').innerText = "Today's Follow-ups";
+            } else {
+                document.getElementById('currentViewLabel').innerText = currentStatusFilter === 'All' ? "All Leads" : `Filtering: ${stages.find(s => s.id === currentStatusFilter)?.label}`;
+                // Filter by Status
+                if (currentStatusFilter !== 'All') {
+                    filtered = filtered.filter(l => l.statusId === currentStatusFilter);
+                }
+            }
+
+            // Filter by Date Range
+            const fromDate = document.getElementById('filterFrom').value;
+            const toDate = document.getElementById('filterTo').value;
+            if (fromDate) filtered = filtered.filter(l => new Date(l.createdAt) >= new Date(fromDate));
+            if (toDate) filtered = filtered.filter(l => new Date(l.createdAt) <= new Date(toDate + "T23:59:59"));
+
+            // Sort by latest activity
+            filtered.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+
+            container.innerHTML = '';
             if (filtered.length === 0) {
+                container.classList.add('hidden');
                 empty.classList.remove('hidden');
                 return;
-            } else {
-                empty.classList.add('hidden');
             }
 
-            filtered.forEach(item => {
-                const colors = STAGE_COLORS[item.status] || STAGE_COLORS['Cold'];
-                const flag = COUNTRY_FLAGS[item.country] || '🌍';
-                
-                let sourceIcon = item.source.toLowerCase().includes('insta') ? 'fa-instagram text-pink-600' : 
-                                 item.source.toLowerCase().includes('whatsapp') ? 'fa-whatsapp text-green-500' : 
-                                 item.source.toLowerCase().includes('ad') ? 'fa-bullhorn text-blue-600' :
-                                 'fa-facebook-messenger text-blue-500';
+            empty.classList.add('hidden');
+            container.classList.remove('hidden');
 
-                // Get latest note from history
-                let latestNote = "No notes.";
-                if(item.history && item.history.length > 0) {
-                    for(let i = item.history.length - 1; i >= 0; i--) {
-                        if(item.history[i].note) {
-                            latestNote = item.history[i].note;
-                            break;
-                        }
-                    }
-                }
+            filtered.forEach(lead => {
+                const stage = stages.find(s => s.id === lead.statusId) || stages[0];
+                const lastHistory = lead.history?.[lead.history.length - 1]?.note || "No recent activity recorded.";
+                const isUrgent = lead.followupDate && lead.followupDate.startsWith(today);
 
-                const card = `
-                    <div onclick="openDetails('${item.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative mb-3 cursor-pointer active:scale-[0.98] transition-transform hover:shadow-md">
-                        <div class="flex justify-between items-start">
-                            <div class="flex items-center space-x-3 w-full">
-                                <div class="w-12 h-12 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl flex-shrink-0">
-                                    ${flag}
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex justify-between items-center w-full">
-                                        <h3 class="font-bold text-gray-900 truncate pr-2 text-lg">${item.name}</h3>
-                                        <span class="${colors.bg} ${colors.text} ${colors.border} border px-2 py-0.5 rounded-md text-[10px] font-bold uppercase whitespace-nowrap shadow-sm">
-                                            ${item.status}
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center space-x-2 text-xs text-gray-500 mt-1">
-                                        <span class="flex items-center"><i class="fab ${sourceIcon} mr-1"></i> ${item.source}</span>
-                                        ${item.phone ? `<span class="truncate pl-1 border-l border-gray-300">• <i class="fas fa-phone-alt text-[10px]"></i> ${item.phone}</span>` : ''}
-                                    </div>
+                container.innerHTML += `
+                    <div onclick="openDetails('${lead.id}')" class="bg-white p-4 rounded-2xl shadow-sm border ${isUrgent ? 'border-indigo-300 ring-1 ring-indigo-100' : 'border-gray-100'} cursor-pointer active:scale-[0.98] transition-all">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-gray-900">${lead.name}</h3>
+                                <div class="flex items-center space-x-2 text-[10px] text-gray-500 uppercase font-bold tracking-tight mt-1">
+                                    <span>${lead.country || 'Global'}</span>
+                                    <span>•</span>
+                                    <span>${lead.source || 'Direct'}</span>
                                 </div>
                             </div>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border" style="background-color: ${stage.color}15; color: ${stage.color}; border-color: ${stage.color}40">
+                                ${stage.label}
+                            </span>
                         </div>
                         
-                        <div class="mt-3 bg-gray-50 p-2.5 rounded-lg text-sm text-gray-600 border border-gray-100 line-clamp-2 italic">
-                            "${latestNote}"
+                        <div class="bg-gray-50 p-2.5 rounded-lg text-xs text-gray-600 italic line-clamp-1 mb-3">
+                            "${lastHistory}"
+                        </div>
+
+                        <div class="flex justify-between items-center text-[10px] font-bold">
+                            <div class="flex items-center space-x-2">
+                                ${lead.followupDate ? `
+                                    <span class="${isUrgent ? 'text-indigo-600' : 'text-gray-400'}">
+                                        <i class="far fa-clock mr-1"></i> Follow-up: ${new Date(lead.followupDate).toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}
+                                    </span>` : '<span class="text-gray-300">No follow-up set</span>'}
+                            </div>
+                            <span class="text-gray-400">${new Date(lead.createdAt).toLocaleDateString()}</span>
                         </div>
                     </div>
                 `;
-                list.innerHTML += card;
             });
         };
 
-        // --- Interaction Logic ---
+        // --- Interaction Handlers ---
 
-        window.toggleCustom = function(prefix) {
-            const select = document.getElementById(prefix + 'Select');
-            const custom = document.getElementById(prefix + 'Custom');
-            if (select.value === 'Custom') {
-                custom.classList.remove('hidden');
-                custom.required = true;
-            } else {
-                custom.classList.add('hidden');
-                custom.required = false;
-            }
+        window.setStatusFilter = (statusId) => {
+            currentStatusFilter = statusId;
+            currentView = 'pipeline';
+            window.renderUI();
         };
 
-        window.onStatusSelectChange = function() {
-            const status = document.getElementById('updateStatus').value;
-            const label = document.getElementById('updateNoteLabel');
-            const noteInput = document.getElementById('updateNote');
-            
-            if(status === 'Dropped') {
-                label.innerHTML = 'Reason for dropping / Why lost? <span class="text-red-500">*</span>';
-                noteInput.required = true;
-                noteInput.placeholder = "Competitor? Price? No response?";
-            } else {
-                label.innerText = 'Remark / Note';
-                noteInput.required = false;
-                noteInput.placeholder = "What happened?";
-            }
+        window.toggleView = (view) => {
+            currentView = currentView === view ? 'pipeline' : view;
+            window.renderUI();
         };
 
-        window.openNewModal = function() {
+        window.openNewModal = () => {
             document.getElementById('enquiryForm').reset();
-            document.getElementById('newCountryCustom').classList.add('hidden');
-            document.getElementById('newSourceCustom').classList.add('hidden');
+            const select = document.getElementById('newStatus');
+            select.innerHTML = stages.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
             document.getElementById('newModal').classList.remove('hidden');
         };
 
-        window.closeModal = function(id) {
-            document.getElementById(id).classList.add('hidden');
-        };
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
 
-        window.openSettingsModal = function() {
-            document.getElementById('settingsModal').classList.remove('hidden');
-        };
+        window.handleSaveLead = async (e) => {
+            e.preventDefault();
+            if (!user) return;
+            const btn = e.submitter;
+            btn.disabled = true;
+            btn.innerText = "Creating...";
 
-        // Custom Dialogs
-        window.customConfirm = function(title, message, callback) {
-            document.getElementById('confirmTitle').innerText = title;
-            document.getElementById('confirmMessage').innerText = message;
-            document.getElementById('confirmModal').classList.remove('hidden');
-            
-            const btn = document.getElementById('confirmActionBtn');
-            btn.onclick = function() {
-                window.closeConfirmModal();
-                callback();
+            const now = Date.now();
+            const data = {
+                name: document.getElementById('newName').value,
+                phone: document.getElementById('newPhone').value,
+                country: document.getElementById('newCountry').value,
+                source: document.getElementById('newSource').value,
+                statusId: document.getElementById('newStatus').value,
+                createdAt: now,
+                updatedAt: now,
+                history: [{
+                    timestamp: now,
+                    action: 'Lead Created',
+                    note: document.getElementById('newNotes').value || 'Fresh entry.',
+                    statusId: document.getElementById('newStatus').value
+                }]
             };
-        };
 
-        window.closeConfirmModal = function() {
-            document.getElementById('confirmModal').classList.add('hidden');
-        };
-
-        window.customAlert = function(title, message, type = 'success') {
-            document.getElementById('notifyTitle').innerText = title;
-            document.getElementById('notifyMessage').innerText = message;
-            const icon = document.getElementById('notifyIcon');
-            if(type === 'error') {
-                icon.className = 'fas fa-times-circle text-4xl text-red-500 mb-4';
-            } else if(type === 'warning') {
-                icon.className = 'fas fa-exclamation-circle text-4xl text-yellow-500 mb-4';
-            } else {
-                icon.className = 'fas fa-check-circle text-4xl text-green-500 mb-4';
+            try {
+                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
+                await addDoc(colRef, data);
+                window.closeModal('newModal');
+            } catch (err) {
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Create Lead";
             }
-            document.getElementById('notifyModal').classList.remove('hidden');
         };
 
-        window.closeNotifyModal = function() {
-            document.getElementById('notifyModal').classList.add('hidden');
-        };
-
-        window.openDetails = function(id) {
-            const item = window.enquiries.find(x => x.id === id);
-            if(!item) return;
+        window.openDetails = (id) => {
+            const lead = leads.find(l => l.id === id);
+            if (!lead) return;
 
             document.getElementById('updateId').value = id;
-            document.getElementById('detailName').innerText = item.name;
-            document.getElementById('detailFlag').innerText = COUNTRY_FLAGS[item.country] || '🌍';
-            document.getElementById('detailSource').innerHTML = `${item.source}`;
+            document.getElementById('detailName').innerText = lead.name;
+            document.getElementById('detailLocSource').innerText = `${lead.country || 'No Location'} • ${lead.source || 'Direct'}`;
             
-            if(item.phone) {
-                document.getElementById('detailPhone').innerHTML = `<i class="fas fa-phone-alt mr-1"></i> <span>${item.phone}</span>`;
-                document.getElementById('detailPhone').href = `tel:${item.phone}`;
-                document.getElementById('detailPhone').classList.remove('hidden');
-            } else {
-                document.getElementById('detailPhone').classList.add('hidden');
-            }
-
-            // Set update form to current status
-            document.getElementById('updateStatus').value = item.status;
+            // Setup Update Form
+            const statusSelect = document.getElementById('updateStatus');
+            statusSelect.innerHTML = stages.map(s => `<option value="${s.id}" ${s.id === lead.statusId ? 'selected' : ''}>${s.label}</option>`).join('');
+            document.getElementById('updateFollowup').value = lead.followupDate || '';
             document.getElementById('updateNote').value = '';
-            window.onStatusSelectChange(); // Reset labels
 
             // Render Timeline
             const tl = document.getElementById('timelineContainer');
-            if(item.history && item.history.length > 0) {
-                // Reverse array to show newest at top
-                const historyRev = [...item.history].reverse();
-                tl.innerHTML = '<div class="timeline-line"></div>' + historyRev.map(h => {
-                    const colors = STAGE_COLORS[h.status] || STAGE_COLORS['Cold'];
-                    const dateObj = new Date(h.timestamp);
-                    const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-                    const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' });
-
+            if (!lead.history || lead.history.length === 0) {
+                tl.innerHTML = '<p class="text-xs text-gray-400 italic">No history available.</p>';
+            } else {
+                const hist = [...lead.history].sort((a, b) => b.timestamp - a.timestamp);
+                tl.innerHTML = '<div class="timeline-line"></div>' + hist.map(h => {
+                    const s = stages.find(st => st.id === h.statusId) || { label: 'Unknown', color: '#ccc' };
                     return `
                         <div class="timeline-item mb-5">
-                            <div class="timeline-dot" style="background-color: ${colors.hex};"></div>
-                            <div class="flex items-center space-x-2 mb-0.5">
-                                <span class="text-xs font-bold text-gray-400">${dateStr}, ${timeStr}</span>
+                            <div class="timeline-dot" style="background-color: ${s.color}"></div>
+                            <div class="text-[10px] font-bold text-gray-400 mb-1">${new Date(h.timestamp).toLocaleString()}</div>
+                            <div class="flex items-center text-sm font-bold">
+                                ${h.action} <span class="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase" style="background: ${s.color}20; color: ${s.color}">${s.label}</span>
                             </div>
-                            <div class="text-sm font-bold text-gray-800 flex items-center">
-                                ${h.action}
-                                <span class="${colors.bg} ${colors.text} ml-2 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">${h.status}</span>
-                            </div>
-                            ${h.note ? `<div class="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg mt-2 border border-gray-100 shadow-inner">${h.note}</div>` : ''}
+                            <p class="text-xs text-gray-600 mt-1">${h.note || ''}</p>
                         </div>
                     `;
                 }).join('');
-            } else {
-                tl.innerHTML = '<p class="text-sm text-gray-500 italic">No history found.</p>';
             }
 
             document.getElementById('detailsModal').classList.remove('hidden');
         };
 
-        // --- Database Operations ---
-
-        window.saveNewEnquiry = async function(e) {
+        window.handleUpdateLead = async (e) => {
             e.preventDefault();
-
-            const btn = document.getElementById('saveNewBtn');
-            btn.innerText = "Saving...";
-            btn.disabled = true;
-
-            // Resolve custom inputs
-            const countrySelect = document.getElementById('newCountrySelect').value;
-            const country = countrySelect === 'Custom' ? document.getElementById('newCountryCustom').value : countrySelect;
-            
-            const sourceSelect = document.getElementById('newSourceSelect').value;
-            const source = sourceSelect === 'Custom' ? document.getElementById('newSourceCustom').value : sourceSelect;
-
-            const initialStatus = document.getElementById('newStatus').value;
-            const initialNote = document.getElementById('newNotes').value;
-
-            const timestamp = Date.now();
-
-            const data = {
-                id: Date.now().toString(), // Will be overwritten by cloud ID if using cloud
-                name: document.getElementById('newName').value,
-                phone: document.getElementById('newPhone').value || '',
-                country: country || 'Unknown',
-                source: source || 'Unknown',
-                status: initialStatus,
-                history: [
-                    { 
-                        timestamp: timestamp, 
-                        action: 'Lead Created', 
-                        note: initialNote, 
-                        status: initialStatus 
-                    }
-                ],
-                timestamp: timestamp
-            };
-
-            try {
-                if (window.useCloud && window.currentUser) {
-                    const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
-                    delete data.id; // Delete local ID so cloud generates a clean one
-                    await addDoc(colRef, data);
-                } else {
-                    // Fallback Local Storage Save
-                    window.enquiries.unshift(data);
-                    localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
-                    window.renderUI();
-                }
-                window.closeModal('newModal');
-            } catch (error) {
-                console.error("Error saving:", error);
-            } finally {
-                btn.innerText = "Create Lead";
-                btn.disabled = false;
-            }
-        };
-
-        window.saveHistoryUpdate = async function(e) {
-            e.preventDefault();
-
-            const btn = document.getElementById('saveUpdateBtn');
-            btn.innerText = "Saving...";
-            btn.disabled = true;
-
             const id = document.getElementById('updateId').value;
+            const lead = leads.find(l => l.id === id);
+            if (!lead || !user) return;
+
             const newStatus = document.getElementById('updateStatus').value;
-            const note = document.getElementById('updateNote').value;
-            
-            // Find current item to append history
-            const item = window.enquiries.find(x => x.id === id);
-            if(!item) return;
+            const newFollowup = document.getElementById('updateFollowup').value;
+            const newNote = document.getElementById('updateNote').value;
+            const now = Date.now();
 
-            const actionLabel = item.status === newStatus ? 'Note Added' : 'Stage Changed';
-            
-            const newHistoryItem = {
-                timestamp: Date.now(),
-                action: actionLabel,
-                note: note,
-                status: newStatus
+            const historyItem = {
+                timestamp: now,
+                action: newStatus === lead.statusId ? 'Note Added' : 'Stage Changed',
+                statusId: newStatus,
+                note: newNote || (newStatus !== lead.statusId ? `Moved to ${stages.find(s=>s.id===newStatus)?.label}` : 'Update')
             };
 
-            const updatedHistory = [...(item.history || []), newHistoryItem];
-
             try {
-                if (window.useCloud && window.currentUser) {
-                    const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
-                    await updateDoc(docRef, { 
-                        status: newStatus, 
-                        history: updatedHistory,
-                        timestamp: Date.now() 
-                    });
-                } else {
-                    // Fallback Local Storage Update
-                    item.status = newStatus;
-                    item.history = updatedHistory;
-                    item.timestamp = Date.now();
-                    localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'leads', id);
+                await updateDoc(docRef, {
+                    statusId: newStatus,
+                    followupDate: newFollowup,
+                    updatedAt: now,
+                    history: [...(lead.history || []), historyItem]
+                });
+                window.closeModal('detailsModal');
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.handleDeleteLead = async () => {
+            const id = document.getElementById('updateId').value;
+            if (!id || !confirm("Are you sure? This delete is permanent.")) return;
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'leads', id);
+                await deleteDoc(docRef);
+                window.closeModal('detailsModal');
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // --- Settings / Stages Management ---
+
+        window.openSettingsModal = () => {
+            const list = document.getElementById('stagesManagerList');
+            list.innerHTML = stages.map(s => `
+                <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-4 h-4 rounded-full" style="background-color: ${s.color}"></div>
+                        <span class="text-sm font-bold">${s.label}</span>
+                    </div>
+                    <button onclick="handleDeleteStage('${s.id}')" class="text-gray-300 hover:text-red-500 transition-colors"><i class="fas fa-trash-alt text-xs"></i></button>
+                </div>
+            `).join('');
+            document.getElementById('settingsModal').classList.remove('hidden');
+        };
+
+        window.handleAddStage = async () => {
+            const name = document.getElementById('newStageName').value.trim();
+            const color = document.getElementById('newStageColor').value;
+            if (!name) return;
+
+            const newStage = { id: name.toLowerCase().replace(/\s/g, '_'), label: name, color: color };
+            const updatedStages = [...stages, newStage];
+            
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pipeline');
+                await setDoc(docRef, { stages: updatedStages });
+                document.getElementById('newStageName').value = '';
+                window.openSettingsModal(); // Refresh list
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        window.handleDeleteStage = async (sid) => {
+            if (stages.length <= 1) return alert("You must have at least one stage.");
+            const updatedStages = stages.filter(s => s.id !== sid);
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pipeline');
+                await setDoc(docRef, { stages: updatedStages });
+                window.openSettingsModal();
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        // --- Sync Data ---
+
+        const startSync = () => {
+            if (!user) return;
+
+            // Sync Settings (Stages)
+            onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pipeline'), (snap) => {
+                if (snap.exists()) {
+                    stages = snap.data().stages;
                     window.renderUI();
                 }
-                
-                // Re-open details modal with fresh data visually
-                item.status = newStatus;
-                item.history = updatedHistory;
-                window.openDetails(id);
-                document.getElementById('updateNote').value = ''; 
-            } catch (error) {
-                console.error("Error updating:", error);
-            } finally {
-                btn.innerText = "Save Update";
-                btn.disabled = false;
-            }
+            }, (err) => console.error(err));
+
+            // Sync Leads
+            const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
+            onSnapshot(colRef, (snap) => {
+                leads = [];
+                snap.forEach(d => leads.push({ id: d.id, ...d.data() }));
+                document.getElementById('loadingState').classList.add('hidden');
+                window.renderUI();
+            }, (err) => console.error(err));
         };
 
-        window.deleteLead = async function() {
-            const id = document.getElementById('updateId').value;
-            if(!id) return;
-            
-            window.customConfirm(
-                "Delete Lead?", 
-                "Are you sure you want to permanently delete this lead and its entire history?", 
-                async () => {
-                    if (window.useCloud && window.currentUser) {
-                        const docRef = doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries', id);
-                        await deleteDoc(docRef);
-                    } else {
-                        // Fallback Local Storage Delete
-                        window.enquiries = window.enquiries.filter(x => x.id !== id);
-                        localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
-                        window.renderUI();
-                    }
-                    window.closeModal('detailsModal');
-                    window.customAlert("Deleted", "Lead was permanently removed.", "success");
-                }
-            );
-        };
-
-        // Backup & Restore Features
-        window.exportData = function() {
-            if(window.enquiries.length === 0) {
-                window.customAlert("Empty", "No data available to export.", "warning");
-                return;
-            }
-            const dataStr = JSON.stringify(window.enquiries, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
+        // --- Backup / Restore ---
+        
+        window.handleExport = () => {
+            const data = { leads, stages, exportedAt: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `GeniusHub_Backup_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            window.closeModal('settingsModal');
-            window.customAlert("Exported", "Backup file downloaded successfully.", "success");
         };
 
-        window.triggerImport = function() {
-            document.getElementById('importFile').click();
-        };
-
-        window.handleImport = async function(event) {
+        window.handleImport = async (event) => {
             const file = event.target.files[0];
-            if (!file) return;
-
+            if (!file || !confirm("This will merge imported leads into your current database. Proceed?")) return;
             const reader = new FileReader();
-            reader.onload = async function(e) {
+            reader.onload = async (e) => {
                 try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (!Array.isArray(importedData)) {
-                        window.customAlert("Error", "Invalid backup file format.", "error");
-                        return;
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.stages) {
+                        await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'pipeline'), { stages: imported.stages });
                     }
-
-                    window.customConfirm(
-                        "Restore Backup?",
-                        `Are you sure you want to restore ${importedData.length} leads? Matching IDs will be merged into the database.`,
-                        async () => {
-                            document.getElementById('loadingState').classList.remove('hidden');
-                            document.getElementById('enquiryList').classList.add('hidden');
-                            window.closeModal('settingsModal');
-
-                            let successCount = 0;
-                            
-                            if (window.useCloud && window.currentUser) {
-                                const colRef = collection(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'enquiries');
-                                for (const item of importedData) {
-                                    if (item.id) {
-                                        const { id, ...dataToSave } = item;
-                                        const docRef = doc(colRef, id);
-                                        await setDoc(docRef, dataToSave, { merge: true });
-                                        successCount++;
-                                    }
-                                }
-                            } else {
-                                // Fallback Local Storage Restore
-                                const existingIds = new Set(window.enquiries.map(x => x.id));
-                                importedData.forEach(item => {
-                                    if(item.id) {
-                                        if(existingIds.has(item.id)) {
-                                            const idx = window.enquiries.findIndex(x => x.id === item.id);
-                                            window.enquiries[idx] = { ...window.enquiries[idx], ...item };
-                                        } else {
-                                            window.enquiries.push(item);
-                                        }
-                                        successCount++;
-                                    }
-                                });
-                                localStorage.setItem('geniusHubData', JSON.stringify(window.enquiries));
-                                document.getElementById('loadingState').classList.add('hidden');
-                                document.getElementById('enquiryList').classList.remove('hidden');
-                                window.renderUI();
-                            }
-
-                            window.customAlert("Success", `Successfully restored ${successCount} leads!`, "success");
-                            event.target.value = ''; // Reset input
+                    if (imported.leads) {
+                        const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'leads');
+                        for (const l of imported.leads) {
+                            const { id, ...cleanLead } = l;
+                            await addDoc(colRef, cleanLead);
                         }
-                    );
-                } catch (error) {
-                    console.error("Error parsing/importing backup:", error);
-                    window.customAlert("Error", "Error restoring backup. Please check the file.", "error");
+                    }
+                    alert("Import successful!");
+                    window.closeModal('settingsModal');
+                } catch (err) {
+                    alert("Import failed: Check file format.");
                 }
             };
             reader.readAsText(file);
         };
 
-        // Initialize the app after all functions are defined!
-        initApp();
+        // Startup
+        (async () => {
+            try {
+                await initAuth();
+                onAuthStateChanged(auth, (u) => {
+                    user = u;
+                    if (user) startSync();
+                });
+            } catch (e) {
+                console.error("Auth initialization failed", e);
+            }
+        })();
     </script>
 </body>
 </html>
