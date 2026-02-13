@@ -15,17 +15,17 @@
         .timeline-item { position: relative; z-index: 1; padding-left: 36px; }
         .timeline-dot { position: absolute; left: 11px; top: 6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #e5e7eb;}
         
-        /* Fix for iOS Date Input alignment and overflow */
-        input[type="date"] {
+        /* Fix for iOS Date Input */
+        input[type="date"], input[type="datetime-local"] {
             -webkit-appearance: none;
             min-height: 40px;
             display: flex;
             align-items: center;
         }
-        /* Ensures the text is visible and aligned on iOS */
-        input[type="date"]::-webkit-date-and-time-value {
+        input[type="date"]::-webkit-date-and-time-value, 
+        input[type="datetime-local"]::-webkit-date-and-time-value {
             text-align: left;
-            margin-left: 36px; /* Space for the absolute label */
+            margin-left: 36px;
         }
     </style>
 </head>
@@ -49,18 +49,29 @@
         </div>
     </header>
 
-    <!-- Filter Bar (Stats) -->
-    <div class="mt-16 px-4 mb-2 flex space-x-2 overflow-x-auto no-scrollbar py-2">
-        <button onclick="setStatusFilter('All')" id="stat-All" class="flex-shrink-0 bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition-all active-filter">
-            All <span id="countAll" class="ml-1 text-gray-400">0</span>
-        </button>
-        <div id="statusStatsList" class="flex space-x-2">
-            <!-- Dynamic Status Buttons -->
+    <!-- Main Filter Bar -->
+    <div class="mt-16 px-4">
+        <!-- Status Stats -->
+        <div class="flex space-x-2 overflow-x-auto no-scrollbar py-2">
+            <button onclick="setStatusFilter('All')" id="stat-All" class="flex-shrink-0 bg-white border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition-all active-filter">
+                All <span id="countAll" class="ml-1 text-gray-400">0</span>
+            </button>
+            <div id="statusStatsList" class="flex space-x-2"></div>
+        </div>
+
+        <!-- Country & Source Filters -->
+        <div class="grid grid-cols-2 gap-2 mt-1">
+            <select id="filterCountry" onchange="renderUI()" class="bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="All">All Countries</option>
+            </select>
+            <select id="filterSource" onchange="renderUI()" class="bg-white border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:ring-1 focus:ring-indigo-500">
+                <option value="All">All Sources</option>
+            </select>
         </div>
     </div>
 
     <!-- Date Filters -->
-    <div class="px-4 mb-4 grid grid-cols-2 gap-2 overflow-hidden">
+    <div class="px-4 mt-3 mb-4 grid grid-cols-2 gap-2 overflow-hidden">
         <div class="relative min-w-0">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-400 uppercase pointer-events-none z-10">From</span>
             <input type="date" id="filterFrom" onchange="renderUI()" class="w-full bg-white border border-gray-200 rounded-lg pl-10 pr-2 py-2 text-xs focus:ring-1 focus:ring-indigo-500 outline-none block box-border">
@@ -77,7 +88,7 @@
     <div id="emptyState" class="hidden flex flex-col items-center justify-center mt-32 text-gray-400 px-10 text-center">
         <i class="fas fa-filter text-5xl mb-4 text-gray-200"></i>
         <p class="font-semibold text-gray-500">No leads found</p>
-        <p class="text-xs mt-1">Try changing filters or add a new lead to start your pipeline.</p>
+        <p class="text-xs mt-1">Adjust your filters or add a new lead.</p>
     </div>
 
     <!-- FAB -->
@@ -90,7 +101,7 @@
         <div class="bg-white w-full sm:w-[500px] rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-bold">New Lead</h2>
-                <button onclick="closeModal('newModal')" class="bg-gray-100 w-8 h-8 rounded-full"><i class="fas fa-times text-gray-500 text-sm"></i></button>
+                <button onclick="closeModal('newModal')" class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-times text-gray-500 text-sm"></i></button>
             </div>
             <form id="enquiryForm" onsubmit="handleSaveLead(event)" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
@@ -104,7 +115,8 @@
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase">Country</label>
-                        <input type="text" id="newCountry" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="USA, UK...">
+                        <select id="newCountry" onchange="toggleCustomInput('newCountry')" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none"></select>
+                        <input type="text" id="newCountryCustom" class="hidden w-full mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl outline-none" placeholder="Type Country Name">
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase">Initial Stage</label>
@@ -112,7 +124,8 @@
                     </div>
                     <div>
                         <label class="text-[10px] font-bold text-gray-400 uppercase">Source</label>
-                        <input type="text" id="newSource" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white outline-none" placeholder="Instagram, Ads...">
+                        <select id="newSource" onchange="toggleCustomInput('newSource')" class="w-full mt-1 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none"></select>
+                        <input type="text" id="newSourceCustom" class="hidden w-full mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl outline-none" placeholder="Type Source Name">
                     </div>
                 </div>
                 <div>
@@ -124,7 +137,7 @@
         </div>
     </div>
 
-    <!-- DETAILS & FOLLOWUP MODAL -->
+    <!-- DETAILS MODAL -->
     <div id="detailsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex flex-col justify-end sm:items-center sm:justify-center">
         <div class="bg-white w-full sm:w-[600px] rounded-t-3xl sm:rounded-2xl flex flex-col max-h-[92vh]">
             <div class="p-5 border-b flex justify-between items-start">
@@ -134,11 +147,10 @@
                         <span id="detailLocSource">Location • Source</span>
                     </div>
                 </div>
-                <button onclick="closeModal('detailsModal')" class="bg-gray-100 w-8 h-8 rounded-full"><i class="fas fa-times text-gray-500"></i></button>
+                <button onclick="closeModal('detailsModal')" class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-times text-gray-500"></i></button>
             </div>
             
             <div class="flex-1 overflow-y-auto p-5">
-                <!-- Update Stage / Followup -->
                 <div class="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 mb-6">
                     <h3 class="text-xs font-bold text-indigo-700 uppercase mb-3">Update Progress</h3>
                     <form onsubmit="handleUpdateLead(event)" class="space-y-4">
@@ -177,54 +189,62 @@
     <div id="settingsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end sm:items-center justify-center">
         <div class="bg-white w-full sm:w-[450px] rounded-t-3xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">Pipeline Settings</h2>
-                <button onclick="closeModal('settingsModal')" class="bg-gray-100 w-8 h-8 rounded-full"><i class="fas fa-times text-gray-500"></i></button>
+                <h2 class="text-xl font-bold">Settings</h2>
+                <button onclick="closeModal('settingsModal')" class="bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-times text-gray-500"></i></button>
             </div>
             
-            <section class="mb-8">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Manage Stages</h3>
-                <div id="stagesManagerList" class="space-y-3 mb-4"></div>
-                <div class="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300">
-                    <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Add New Stage</p>
-                    <div class="flex space-x-2">
-                        <input type="text" id="newStageName" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm" placeholder="Stage Name">
-                        <input type="color" id="newStageColor" class="w-10 h-10 border-none bg-transparent cursor-pointer" value="#6366f1">
-                        <button onclick="handleAddStage()" class="bg-indigo-600 text-white px-4 rounded-lg"><i class="fas fa-plus"></i></button>
+            <!-- Section Tabs -->
+            <div class="flex border-b mb-6 space-x-6 overflow-x-auto no-scrollbar">
+                <button onclick="switchTab('stages')" id="tab-stages" class="pb-2 text-xs font-bold border-b-2 border-indigo-600 flex-shrink-0">Stages</button>
+                <button onclick="switchTab('countries')" id="tab-countries" class="pb-2 text-xs font-bold text-gray-400 flex-shrink-0">Countries</button>
+                <button onclick="switchTab('sources')" id="tab-sources" class="pb-2 text-xs font-bold text-gray-400 flex-shrink-0">Sources</button>
+                <button onclick="switchTab('data')" id="tab-data" class="pb-2 text-xs font-bold text-gray-400 flex-shrink-0">Backup</button>
+            </div>
+
+            <!-- Manage Lists -->
+            <div id="settingsContent" class="mb-8">
+                <div id="managerContainer">
+                    <div id="settingsList" class="space-y-2 mb-4"></div>
+                    <div class="bg-gray-50 p-4 rounded-xl border border-dashed border-gray-300">
+                        <div class="flex space-x-2">
+                            <input type="text" id="newItemName" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm" placeholder="Add new...">
+                            <input type="color" id="newItemColor" class="w-10 h-10 border-none bg-transparent cursor-pointer hidden" value="#6366f1">
+                            <button onclick="handleAddItem()" class="bg-indigo-600 text-white px-4 rounded-lg"><i class="fas fa-plus"></i></button>
+                        </div>
                     </div>
                 </div>
-            </section>
-
-            <section class="border-t pt-6">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Backup & Restore</h3>
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="handleExport()" class="flex flex-col items-center justify-center p-4 bg-blue-50 text-blue-700 rounded-2xl border border-blue-100 font-bold">
-                        <i class="fas fa-download text-xl mb-2"></i>
-                        <span class="text-xs">Download Backup</span>
+                
+                <!-- Data Tab -->
+                <div id="dataContainer" class="hidden space-y-4">
+                    <button onclick="handleExport()" class="w-full flex items-center justify-center space-x-2 p-4 bg-blue-50 text-blue-700 rounded-xl font-bold">
+                        <i class="fas fa-download"></i> <span>Download Backup JSON</span>
                     </button>
-                    <button onclick="document.getElementById('importFile').click()" class="flex flex-col items-center justify-center p-4 bg-green-50 text-green-700 rounded-2xl border border-green-100 font-bold">
-                        <i class="fas fa-upload text-xl mb-2"></i>
-                        <span class="text-xs">Restore Backup</span>
+                    <button onclick="document.getElementById('importFile').click()" class="w-full flex items-center justify-center space-x-2 p-4 bg-green-50 text-green-700 rounded-xl font-bold">
+                        <i class="fas fa-upload"></i> <span>Restore Backup JSON</span>
                     </button>
                     <input type="file" id="importFile" class="hidden" accept=".json" onchange="handleImport(event)">
                 </div>
-            </section>
+            </div>
         </div>
     </div>
 
     <script>
-        // State Management
+        // --- State Management ---
         let leads = [];
         let stages = [
             { id: 'cold', label: '❄️ Cold', color: '#94a3b8' },
             { id: 'hot', label: '🔥 Hot', color: '#f97316' },
             { id: 'demo', label: '📅 Demo Booked', color: '#8b5cf6' },
-            { id: 'done', label: '✅ Admission Done', color: '#22c55e' },
-            { id: 'dropped', label: '❌ Dropped', color: '#ef4444' }
+            { id: 'done', label: '✅ Admission Done', color: '#22c55e' }
         ];
+        let countries = ['USA', 'UK', 'Canada', 'Australia', 'Dubai', 'India'];
+        let sources = ['Instagram', 'Meta Ads', 'WhatsApp', 'Referral', 'Website'];
+        
         let currentStatusFilter = 'All';
         let currentView = 'pipeline';
+        let activeSettingsTab = 'stages';
 
-        const STORAGE_KEY = 'geniushub_local_v2';
+        const STORAGE_KEY = 'geniushub_local_v3';
 
         function initApp() {
             const savedData = localStorage.getItem(STORAGE_KEY);
@@ -232,12 +252,35 @@
                 const parsed = JSON.parse(savedData);
                 leads = parsed.leads || [];
                 stages = parsed.stages || stages;
+                countries = parsed.countries || countries;
+                sources = parsed.sources || sources;
             }
+            populateDropdowns();
             renderUI();
         }
 
         function saveData() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ leads, stages }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ leads, stages, countries, sources }));
+        }
+
+        // --- UI Updates ---
+        function populateDropdowns() {
+            // New Lead Dropdowns
+            const cSel = document.getElementById('newCountry');
+            cSel.innerHTML = countries.map(c => `<option value="${c}">${c}</option>`).join('') + '<option value="Custom">➕ Add Custom...</option>';
+            
+            const sSel = document.getElementById('newSource');
+            sSel.innerHTML = sources.map(s => `<option value="${s}">${s}</option>`).join('') + '<option value="Custom">➕ Add Custom...</option>';
+            
+            const stSel = document.getElementById('newStatus');
+            stSel.innerHTML = stages.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+
+            // Filter Dropdowns
+            const fCSel = document.getElementById('filterCountry');
+            fCSel.innerHTML = '<option value="All">All Countries</option>' + countries.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            const fSSel = document.getElementById('filterSource');
+            fSSel.innerHTML = '<option value="All">All Sources</option>' + sources.map(s => `<option value="${s}">${s}</option>`).join('');
         }
 
         window.renderUI = () => {
@@ -250,6 +293,7 @@
             followBadge.innerText = tasksToday.length;
             followBadge.classList.toggle('hidden', tasksToday.length === 0);
 
+            // Stats row
             const statsList = document.getElementById('statusStatsList');
             statsList.innerHTML = stages.map(s => {
                 const count = leads.filter(l => l.statusId === s.id).length;
@@ -263,15 +307,29 @@
             document.getElementById('countAll').innerText = leads.length;
             document.getElementById('stat-All').classList.toggle('active-filter', currentStatusFilter === 'All');
 
+            // Filtering Core
             let filtered = [...leads];
+            
+            // 1. Followup view
             if (currentView === 'followups') {
                 filtered = tasksToday;
                 document.getElementById('currentViewLabel').innerText = "Today's Follow-ups";
             } else {
-                document.getElementById('currentViewLabel').innerText = currentStatusFilter === 'All' ? "All Leads" : `Stage: ${stages.find(s => s.id === currentStatusFilter)?.label}`;
+                // 2. Status Filter
                 if (currentStatusFilter !== 'All') filtered = filtered.filter(l => l.statusId === currentStatusFilter);
+                
+                // 3. Country Filter
+                const countryF = document.getElementById('filterCountry').value;
+                if (countryF !== 'All') filtered = filtered.filter(l => l.country === countryF);
+
+                // 4. Source Filter
+                const sourceF = document.getElementById('filterSource').value;
+                if (sourceF !== 'All') filtered = filtered.filter(l => l.source === sourceF);
+
+                document.getElementById('currentViewLabel').innerText = (currentStatusFilter === 'All' && countryF === 'All' && sourceF === 'All') ? "All Leads" : "Filtered Pipeline";
             }
 
+            // 5. Date Range
             const fromDate = document.getElementById('filterFrom').value;
             const toDate = document.getElementById('filterTo').value;
             if (fromDate) filtered = filtered.filter(l => new Date(l.createdAt) >= new Date(fromDate));
@@ -297,8 +355,10 @@
                                 <h3 class="font-bold text-gray-900">${lead.name}</h3>
                                 <span class="px-2 py-0.5 rounded text-[9px] font-bold border uppercase" style="color: ${stage.color}; background: ${stage.color}10; border-color: ${stage.color}30">${stage.label}</span>
                             </div>
-                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-tight mt-1">
-                                ${lead.country || 'Unknown'} • ${lead.source || 'Direct'}
+                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-tight mt-1 flex space-x-2">
+                                <span><i class="fas fa-globe-americas mr-1"></i>${lead.country}</span>
+                                <span>•</span>
+                                <span><i class="fas fa-bullhorn mr-1"></i>${lead.source}</span>
                             </div>
                             <div class="mt-3 bg-gray-50 p-2 rounded-lg text-xs text-gray-500 italic truncate italic">"${lastNote}"</div>
                             <div class="flex justify-between items-center mt-3 text-[10px] font-bold">
@@ -313,31 +373,67 @@
             }
         };
 
+        // --- Interaction Handlers ---
         window.setStatusFilter = (id) => { currentStatusFilter = id; currentView = 'pipeline'; renderUI(); };
         window.toggleView = (v) => { currentView = currentView === v ? 'pipeline' : v; renderUI(); };
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        window.closeModal = (id) => { document.getElementById(id).classList.add('hidden'); };
+
+        window.toggleCustomInput = (id) => {
+            const select = document.getElementById(id);
+            const custom = document.getElementById(id + 'Custom');
+            if (select.value === 'Custom') {
+                custom.classList.remove('hidden');
+                custom.focus();
+            } else {
+                custom.classList.add('hidden');
+            }
+        };
 
         window.openNewModal = () => {
             document.getElementById('enquiryForm').reset();
-            document.getElementById('newStatus').innerHTML = stages.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+            document.getElementById('newCountryCustom').classList.add('hidden');
+            document.getElementById('newSourceCustom').classList.add('hidden');
+            populateDropdowns();
             document.getElementById('newModal').classList.remove('hidden');
         };
 
         window.handleSaveLead = (e) => {
             e.preventDefault();
             const now = Date.now();
+            
+            // Resolve Custom Country
+            let finalCountry = document.getElementById('newCountry').value;
+            if (finalCountry === 'Custom') {
+                finalCountry = document.getElementById('newCountryCustom').value.trim();
+                if (finalCountry && !countries.includes(finalCountry)) {
+                    countries.push(finalCountry);
+                }
+            }
+
+            // Resolve Custom Source
+            let finalSource = document.getElementById('newSource').value;
+            if (finalSource === 'Custom') {
+                finalSource = document.getElementById('newSourceCustom').value.trim();
+                if (finalSource && !sources.includes(finalSource)) {
+                    sources.push(finalSource);
+                }
+            }
+
+            if (!finalCountry || !finalSource) return alert("Please specify country and source.");
+
             const newLead = {
                 id: now.toString(),
                 name: document.getElementById('newName').value,
                 phone: document.getElementById('newPhone').value,
-                country: document.getElementById('newCountry').value,
-                source: document.getElementById('newSource').value,
+                country: finalCountry,
+                source: finalSource,
                 statusId: document.getElementById('newStatus').value,
                 createdAt: now, updatedAt: now,
                 history: [{ timestamp: now, action: 'Created', note: document.getElementById('newNotes').value || 'Fresh entry', statusId: document.getElementById('newStatus').value }]
             };
             leads.push(newLead);
             saveData();
+            populateDropdowns();
             closeModal('newModal');
             renderUI();
         };
@@ -347,7 +443,7 @@
             if (!lead) return;
             document.getElementById('updateId').value = id;
             document.getElementById('detailName').innerText = lead.name;
-            document.getElementById('detailLocSource').innerText = `${lead.country || 'Global'} • ${lead.source || 'Direct'}`;
+            document.getElementById('detailLocSource').innerText = `${lead.country} • ${lead.source}`;
             document.getElementById('updateStatus').innerHTML = stages.map(s => `<option value="${s.id}" ${s.id === lead.statusId ? 'selected' : ''}>${s.label}</option>`).join('');
             document.getElementById('updateFollowup').value = lead.followupDate || '';
             document.getElementById('updateNote').value = '';
@@ -377,7 +473,7 @@
             const now = Date.now();
             lead.history.push({
                 timestamp: now,
-                action: newStatus === lead.statusId ? 'Update' : 'Stage Change',
+                action: newStatus === lead.statusId ? 'Note' : 'Stage Change',
                 statusId: newStatus,
                 note: document.getElementById('updateNote').value || `Updated status to ${stages.find(s=>s.id===newStatus)?.label}`
             });
@@ -390,47 +486,98 @@
         };
 
         window.handleDeleteLead = () => {
-            if (!confirm("Delete permanently?")) return;
+            if (!confirm("Delete lead permanently?")) return;
             leads = leads.filter(l => l.id !== document.getElementById('updateId').value);
             saveData();
             closeModal('detailsModal');
             renderUI();
         };
 
-        window.openSettingsModal = () => {
-            const list = document.getElementById('stagesManagerList');
-            list.innerHTML = stages.map(s => `
+        // --- Settings Tabs & Lists ---
+        window.switchTab = (tab) => {
+            activeSettingsTab = tab;
+            const tabs = ['stages', 'countries', 'sources', 'data'];
+            tabs.forEach(t => {
+                const el = document.getElementById('tab-' + t);
+                if (t === tab) {
+                    el.classList.add('border-indigo-600', 'text-indigo-600');
+                    el.classList.remove('text-gray-400');
+                } else {
+                    el.classList.remove('border-indigo-600', 'text-indigo-600');
+                    el.classList.add('text-gray-400');
+                }
+            });
+
+            document.getElementById('managerContainer').classList.toggle('hidden', tab === 'data');
+            document.getElementById('dataContainer').classList.toggle('hidden', tab !== 'data');
+            document.getElementById('newItemColor').classList.toggle('hidden', tab !== 'stages');
+            
+            if (tab !== 'data') refreshSettingsList();
+        };
+
+        function refreshSettingsList() {
+            const list = document.getElementById('settingsList');
+            let data = [];
+            if (activeSettingsTab === 'stages') data = stages;
+            else if (activeSettingsTab === 'countries') data = countries;
+            else if (activeSettingsTab === 'sources') data = sources;
+
+            list.innerHTML = data.map((item, idx) => `
                 <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-3 h-3 rounded-full" style="background:${s.color}"></div>
-                        <span class="text-sm font-bold">${s.label}</span>
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        ${activeSettingsTab === 'stages' ? `<div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${item.color}"></div>` : ''}
+                        <span class="text-sm font-bold truncate">${typeof item === 'string' ? item : item.label}</span>
                     </div>
-                    <button onclick="handleDeleteStage('${s.id}')" class="text-gray-300 hover:text-red-500"><i class="fas fa-trash-alt text-xs"></i></button>
+                    <button onclick="handleDeleteItem(${idx})" class="p-2 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
                 </div>
             `).join('');
+        }
+
+        window.handleAddItem = () => {
+            const name = document.getElementById('newItemName').value.trim();
+            if (!name) return;
+
+            if (activeSettingsTab === 'stages') {
+                stages.push({ id: name.toLowerCase().replace(/\s/g, '_'), label: name, color: document.getElementById('newItemColor').value });
+            } else if (activeSettingsTab === 'countries') {
+                if (!countries.includes(name)) countries.push(name);
+            } else if (activeSettingsTab === 'sources') {
+                if (!sources.includes(name)) sources.push(name);
+            }
+
+            saveData();
+            populateDropdowns();
+            document.getElementById('newItemName').value = '';
+            refreshSettingsList();
+            renderUI();
+        };
+
+        window.handleDeleteItem = (idx) => {
+            if (confirm("Remove this item from your lists? Existing leads with this value will remain as they are.")) {
+                if (activeSettingsTab === 'stages') {
+                    if (stages.length <= 1) return alert("Minimum 1 stage required.");
+                    stages.splice(idx, 1);
+                } else if (activeSettingsTab === 'countries') {
+                    countries.splice(idx, 1);
+                } else if (activeSettingsTab === 'sources') {
+                    sources.splice(idx, 1);
+                }
+                saveData();
+                populateDropdowns();
+                refreshSettingsList();
+                renderUI();
+            }
+        };
+
+        window.openSettingsModal = () => {
+            switchTab('stages');
             document.getElementById('settingsModal').classList.remove('hidden');
         };
 
-        window.handleAddStage = () => {
-            const name = document.getElementById('newStageName').value.trim();
-            if (!name) return;
-            stages.push({ id: name.toLowerCase().replace(/\s/g, '_'), label: name, color: document.getElementById('newStageColor').value });
-            saveData();
-            document.getElementById('newStageName').value = '';
-            openSettingsModal();
-            renderUI();
-        };
-
-        window.handleDeleteStage = (sid) => {
-            if (stages.length <= 1) return alert("Min 1 stage.");
-            stages = stages.filter(s => s.id !== sid);
-            saveData();
-            openSettingsModal();
-            renderUI();
-        };
-
         window.handleExport = () => {
-            const blob = new Blob([JSON.stringify({ leads, stages })], { type: "application/json" });
+            const blob = new Blob([JSON.stringify({ leads, stages, countries, sources })], { type: "application/json" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = `GeniusHub_Backup.json`; a.click();
         };
@@ -441,9 +588,12 @@
                 const imported = JSON.parse(e.target.result);
                 if (imported.leads) leads = imported.leads;
                 if (imported.stages) stages = imported.stages;
+                if (imported.countries) countries = imported.countries;
+                if (imported.sources) sources = imported.sources;
                 saveData();
+                populateDropdowns();
                 renderUI();
-                alert("Restored!");
+                alert("Database Restored!");
             };
             reader.readAsText(event.target.files[0]);
         };
